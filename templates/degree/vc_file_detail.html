@@ -1,0 +1,153 @@
+{% extends 'base.html' %}
+{% load degree_extras %}
+{% block content %}
+<div class="vc-page">
+  <div class="vc-page-header d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4 no-print">
+    <div>
+      <p class="eyebrow mb-2">VC Approval Workflow</p>
+      <h3 class="page-title mb-2">File No. {{ vc_file.file_no|vc_file_no_display }}</h3>
+      <p class="page-subtitle mb-0">Review included applications and print the official cover letter.</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap no-print">
+      <a href="{% url 'degree:vc_file_list' %}" class="btn btn-light rounded-4 fw-bold"><i class="bi bi-arrow-left me-1"></i> All VC Files</a>
+      {% if vc_file.status == 'DRAFT' %}<a href="{% url 'degree:vc_file_edit' vc_file.pk %}" class="btn btn-primary rounded-4 fw-bold"><i class="bi bi-pencil-square me-1"></i> Edit Draft</a>{% endif %}
+      <button onclick="window.print()" class="btn btn-dark rounded-4 fw-bold"><i class="bi bi-printer me-1"></i> Print VC Cover Letter</button>
+    </div>
+  </div>
+
+  <section class="vc-cover-letter content-card mb-4">
+    <div class="vc-cover-sheet">
+      <div class="vc-cover-date-row">
+        <span>{{ vc_file.created_at|date:'d/m' }}</span>
+        <span>{{ vc_file.created_at|date:'Y' }}</span>
+      </div>
+      <p class="vc-cover-subject">Degree(s) of the Following candidates are submitted for your checking and onward submission to the Controller of Examinations /Vice Chancellor for obtaining their Signature please.</p>
+
+      <table class="vc-cover-table">
+        <thead>
+          <tr>
+            <th class="vc-col-sno">S. NO</th>
+            <th class="vc-col-roll">Roll . No</th>
+            <th>Name</th>
+            <th class="vc-col-type">Type of<br>Degree</th>
+            <th class="vc-col-degree">Degree No</th>
+            <th class="vc-col-reg">Reg No</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in vc_file.items.all %}
+          <tr>
+            <td>{{ item.serial_no }}</td>
+            <td>{{ item.application.roll_no|default:'...' }}</td>
+            <td class="vc-name-cell">{{ item.application.student_name }} S/O {{ item.application.father_name }}</td>
+            <td>{{ item.application.program.name }}</td>
+            <td>{% if item.application.degree_book_no and item.application.degree_serial_no %}{{ item.application.degree_book_no }} {{ item.application.degree_serial_no }}{% elif item.application.degree_serial_no %}{{ item.application.degree_serial_no }}{% elif item.application.degree_book_no %}{{ item.application.degree_book_no }}{% else %}-{% endif %}</td>
+            <td>{{ item.application.registration_no }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <p class="vc-certification">Certified that the above information is correct as per registration record.</p>
+
+      <div class="vc-signature-area">
+        <div class="vc-signature-right">
+          <div><span>Dealing Assistant</span><em></em></div>
+          <div><span>Superintendent</span><em></em></div>
+        </div>
+
+        <div class="vc-signature-left">
+          <div><span>Deputy Controller Exam Please</span><em></em></div>
+          <div><span>Controller of Examination please</span><em></em></div>
+          <div><span>Vice Chancellor Please</span><em></em></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="vc-detail-grid no-print">
+    <section class="content-card vc-card">
+      <div class="vc-card-header">
+        <div>
+          <h5 class="mb-1">Applications in this File</h5>
+          <p class="mb-0 text-muted small">This file contains {{ vc_file.items.count }} application{{ vc_file.items.count|pluralize }}.</p>
+        </div>
+        {% if vc_file.status == 'DRAFT' %}
+          <span class="status-badge status-draft">{{ vc_file.get_status_display }}</span>
+        {% elif vc_file.status == 'SUBMITTED' %}
+          <span class="status-badge status-submitted">{{ vc_file.get_status_display }}</span>
+        {% else %}
+          <span class="status-badge status-returned">{{ vc_file.get_status_display }}</span>
+        {% endif %}
+      </div>
+
+      <div class="vc-table-wrap">
+        <table class="table vc-table align-middle mb-0">
+          <thead>
+            <tr>
+              <th>Sr</th>
+              <th>Tracking</th>
+              <th>Student</th>
+              <th>Registration</th>
+              <th>Program</th>
+              <th>CNIC</th>
+              <th>Degree Serial</th>
+              <th>Book No</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in vc_file.items.all %}
+              <tr>
+                <td><strong>{{ item.serial_no }}</strong></td>
+                <td><a class="vc-primary-link text-decoration-none" href="{% url 'degree:detail' item.application.pk %}">{{ item.application.tracking_no }}</a></td>
+                <td>
+                  <div class="fw-bold">{{ item.application.student_name }}</div>
+                  <div class="vc-muted small">Father: {{ item.application.father_name }}</div>
+                </td>
+                <td>{{ item.application.registration_no }}</td>
+                <td>{{ item.application.program.name }}</td>
+                <td><code class="vc-code">{{ item.application.cnic|cnic_format }}</code></td>
+                <td>{{ item.application.degree_serial_no|default:'—' }}</td>
+                <td>{{ item.application.degree_book_no|default:'—' }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <aside class="content-card vc-card file-details-card no-print">
+      <div class="vc-card-header compact">
+        <div>
+          <h5 class="mb-1">File Status</h5>
+          <p class="mb-0 text-muted small">Created {{ vc_file.created_at|date:'d-m-Y h:i A' }}</p>
+        </div>
+      </div>
+      <div class="selected-summary">
+        <div class="selected-count">{{ vc_file.items.count }}</div>
+        <div>
+          <div class="fw-bold">Applications included</div>
+          <div class="vc-muted small">Created by {{ vc_file.created_by }}</div>
+        </div>
+      </div>
+      <div class="vc-meta-list">
+        <div><span>Status</span><strong>{{ vc_file.get_status_display }}</strong></div>
+        <div><span>Submitted</span><strong>{% if vc_file.submitted_at %}{{ vc_file.submitted_at|date:'d-m-Y h:i A' }}{% else %}Not submitted{% endif %}</strong></div>
+        <div><span>Received</span><strong>{% if vc_file.returned_at %}{{ vc_file.returned_at|date:'d-m-Y h:i A' }}{% else %}Not received{% endif %}</strong></div>
+      </div>
+      {% if vc_file.remarks %}
+        <div class="vc-remarks"><strong>Remarks</strong><p class="mb-0">{{ vc_file.remarks }}</p></div>
+      {% endif %}
+      <div class="vc-action-footer">
+        {% if vc_file.status == 'DRAFT' %}
+          <a class="btn btn-primary" href="{% url 'degree:vc_file_submit' vc_file.pk %}">Submit to VC</a>
+        {% elif vc_file.status == 'SUBMITTED' %}
+          <a class="btn btn-success" href="{% url 'degree:vc_file_return' vc_file.pk %}">Mark Received</a>
+        {% else %}
+          <a class="btn btn-light" href="{% url 'degree:vc_file_list' %}">Back to List</a>
+        {% endif %}
+      </div>
+    </aside>
+  </div>
+</div>
+{% endblock %}

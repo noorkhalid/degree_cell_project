@@ -1,0 +1,123 @@
+{% extends 'base.html' %}
+{% load degree_extras %}
+{% block title %}Processing Desk | Degree Cell{% endblock %}
+{% block content %}
+<div class="processing-page">
+  <section class="dashboard-hero compact-hero">
+    <div>
+      <p class="eyebrow mb-1">Degree Cell Operations</p>
+      <h1 class="page-title">Processing Desk</h1>
+      <p class="page-subtitle mb-0">Click a status card, search within that status, select applications, then use the next logical action.</p>
+    </div>
+  </section>
+
+  <div class="process-status-cards mb-3">
+    {% for card in status_cards %}
+      <a class="process-status-card {% if selected_status == card.code %}active{% endif %}" href="?status={{ card.code }}">
+        <span>{{ card.label }}</span>
+        <strong>{{ card.count }}</strong>
+      </a>
+    {% endfor %}
+  </div>
+
+  <section class="content-panel process-main-panel">
+    <div class="panel-header compact">
+      <div>
+        <h2>{{ selected_status|default:'PENDING_VERIFICATION' }}</h2>
+        <p>Showing applications in the selected status. Search by tracking no, CNIC, registration no, roll no, student name, or father name.</p>
+      </div>
+    </div>
+    <div class="panel-body">
+      <form method="get" class="process-filter-form">
+        <input type="hidden" name="status" value="{{ selected_status }}">
+        <div class="filter-field wide">
+          <label>Search</label>
+          <input type="text" name="q" value="{{ q }}" placeholder="Tracking, CNIC, registration, roll no, name">
+        </div>
+        <div class="filter-actions">
+          <button class="btn btn-primary" type="submit"><i class="bi bi-search me-1"></i>Search</button>
+          <a class="btn btn-light action-outline" href="{% url 'degree:processing' %}?status={{ selected_status }}">Reset</a>
+        </div>
+      </form>
+
+      <form method="post" id="bulkStatusForm">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="advance">
+        <div class="bulk-update-card">
+          <div class="bulk-title">
+            <i class="bi bi-arrow-right-circle"></i>
+            <div>
+              <strong>Next Logical Step</strong>
+              {% if next_label %}
+                <span>Selected applications will move toward: <b>{{ next_label }}</b></span>
+              {% else %}
+                <span>No next step available for this status.</span>
+              {% endif %}
+            </div>
+          </div>
+          <div class="bulk-submit">
+            {% if selected_status == 'PENDING_VERIFICATION' %}
+              <a class="btn btn-primary" href="{% url 'degree:bulk_mark_printed' %}"><i class="bi bi-printer me-1"></i>Enter Print Details</a>
+            {% elif selected_status == 'READY_FOR_COLLECTION' %}
+              <button class="btn btn-primary" type="submit"><i class="bi bi-box-arrow-up-right me-1"></i>Open Delivery for Selected</button>
+            {% elif next_label %}
+              <button class="btn btn-primary" type="submit"><i class="bi bi-check2-circle me-1"></i>Move to {{ next_label }}</button>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="table-responsive processing-table-wrap">
+          <table class="dashboard-table processing-table mb-0">
+            <thead>
+              <tr>
+                <th style="width:42px"><input type="checkbox" id="selectAllApplications"></th>
+                <th>Tracking</th>
+                <th>Student</th>
+                <th>Roll No</th>
+                <th>Registration</th>
+                <th>Program</th>
+                <th>Current Status</th>
+                <th class="text-end">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for app in applications %}
+              <tr>
+                <td><input class="application-check" type="checkbox" name="application_ids" value="{{ app.pk }}"></td>
+                <td><span class="tracking-no">{{ app.tracking_no }}</span></td>
+                <td><strong>{{ app.student_name }}</strong><br><small>{{ app.cnic|cnic_format }}</small></td>
+                <td>{{ app.roll_no|default:'-' }}</td>
+                <td>{{ app.registration_no }}</td>
+                <td>{{ app.program.name }}</td>
+                <td><span class="status-badge status-{{ app.status|lower }}">{{ app.get_status_display }}</span></td>
+                <td class="text-end"><a class="btn btn-sm row-action" href="{% url 'degree:detail' app.pk %}">Open</a></td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="8">
+                  <div class="empty-state compact-empty">
+                    <div class="empty-icon"><i class="bi bi-inbox"></i></div>
+                    <h3>No applications found</h3>
+                    <p>Try another search or status card.</p>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </form>
+    </div>
+  </section>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const selectAll = document.getElementById('selectAllApplications');
+  if (selectAll) {
+    selectAll.addEventListener('change', function () {
+      document.querySelectorAll('.application-check').forEach(cb => cb.checked = selectAll.checked);
+    });
+  }
+});
+</script>
+{% endblock %}

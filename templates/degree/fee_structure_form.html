@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-7 col-xl-6">
+    <div class="content-card p-4 p-lg-5">
+      <div class="mb-4">
+        <h1 class="page-title mb-1">{{ title }}</h1>
+        <p class="text-muted mb-0">Use effective dates to keep old fees applied on old applications and apply new fees only from the selected date.</p>
+      </div>
+      <form method="post" id="feeStructureForm">
+        {% csrf_token %}
+        {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+        {% for field in form %}
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+            {% for error in field.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+          </div>
+        {% endfor %}
+        <div id="urgentAutoNote" class="alert alert-info rounded-4 py-2 px-3 small d-none">
+          <strong>Auto selected:</strong> Before Time fee is always saved as <strong>Urgent</strong>.
+        </div>
+        <div class="alert alert-warning rounded-4 py-2 px-3 small">
+          Do not overwrite old fee amounts. Add a new fee version with a new effective date. The system will preserve full history.
+        </div>
+        <div class="d-flex justify-content-end gap-2 mt-4">
+          <a class="btn btn-outline-secondary rounded-3 px-4" href="{% url 'degree:fee_structures' %}">Cancel</a>
+          <button class="btn btn-primary rounded-3 px-4" type="submit">Save Fee Version</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const timing = document.getElementById('id_timing');
+  const applicationType = document.getElementById('id_application_type');
+  const note = document.getElementById('urgentAutoNote');
+
+  function applyTimingRule() {
+    if (!timing || !applicationType) return;
+    const isBeforeTime = timing.value === 'BEFORE_TIME';
+    if (isBeforeTime) {
+      applicationType.value = 'URGENT';
+      applicationType.disabled = true;
+      applicationType.classList.add('bg-light');
+      note && note.classList.remove('d-none');
+    } else {
+      applicationType.disabled = false;
+      applicationType.classList.remove('bg-light');
+      note && note.classList.add('d-none');
+    }
+  }
+
+  timing && timing.addEventListener('change', applyTimingRule);
+  applyTimingRule();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+{% load degree_extras %}
+{% block title %}Dashboard | Degree Cell{% endblock %}
+{% block content %}
+<div class="dashboard-page">
+  <div class="dashboard-hero compact-hero">
+    <div>
+      <p class="eyebrow mb-1">Degree Cell Operations</p>
+      <h1 class="page-title">Dashboard</h1>
+      <p class="page-subtitle mb-0">Monitor In Process applications, Objections, Printed applications, VC File applications, and Ready for Collection degrees.</p>
+    </div>
+  </div>
+
+  <div class="dashboard-grid executive-grid five-card-grid">
+    <div class="metric-card info">
+      <div class="metric-icon"><i class="bi bi-clipboard-check"></i></div>
+      <div class="metric-content">
+        <span class="metric-label">In Process</span>
+        <strong class="metric-value">{{ dashboard_counts.in_process|default:0 }}</strong>
+        <span class="metric-caption">Complete applications currently under processing</span>
+      </div>
+    </div>
+
+    <div class="metric-card danger">
+      <div class="metric-icon"><i class="bi bi-exclamation-triangle-fill"></i></div>
+      <div class="metric-content">
+        <span class="metric-label">Objections</span>
+        <strong class="metric-value">{{ dashboard_counts.objection|default:0 }}</strong>
+        <span class="metric-caption">Applications blocked due to missing required documents</span>
+      </div>
+    </div>
+
+    <div class="metric-card orange">
+      <div class="metric-icon"><i class="bi bi-printer-fill"></i></div>
+      <div class="metric-content">
+        <span class="metric-label">Printed</span>
+        <strong class="metric-value">{{ dashboard_counts.printed|default:0 }}</strong>
+        <span class="metric-caption">Applications printed and waiting for VC file</span>
+      </div>
+    </div>
+
+    <div class="metric-card purple">
+      <div class="metric-icon"><i class="bi bi-folder-check"></i></div>
+      <div class="metric-content">
+        <span class="metric-label">VC File</span>
+        <strong class="metric-value">{{ dashboard_counts.vc_file|default:0 }}</strong>
+        <span class="metric-caption">Printed applications already included in VC files</span>
+      </div>
+    </div>
+
+    <div class="metric-card cyan">
+      <div class="metric-icon"><i class="bi bi-bag-check"></i></div>
+      <div class="metric-content">
+        <span class="metric-label">Ready for Collection</span>
+        <strong class="metric-value">{{ dashboard_counts.ready_for_collection|default:0 }}</strong>
+        <span class="metric-caption">Signed degrees ready, not yet collected</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4 mt-1">
+    <div class="col-12">
+      <div class="pro-panel h-100">
+        <div class="panel-header">
+          <div>
+            <h2>Recent Applications</h2>
+            <p>Latest activity in the degree application register.</p>
+          </div>
+        </div>
+        <div class="table-responsive dashboard-table-wrap">
+          <table class="table dashboard-table align-middle mb-0">
+            <thead>
+              <tr><th>Tracking</th><th>Student</th><th>Program</th><th>Status</th><th class="text-end">Action</th></tr>
+            </thead>
+            <tbody>
+              {% for app in recent %}
+              <tr>
+                <td><span class="tracking-no">{{ app.tracking_no }}</span></td>
+                <td><strong>{{ app.student_name }}</strong><br><small>{{ app.registration_no }}</small></td>
+                <td>{{ app.program.name }}</td>
+                <td><span class="status-badge status-{{ app.status|lower }}">{{ app.get_status_display }}</span></td>
+                <td class="text-end"><a class="btn btn-sm btn-light row-action" href="{% url 'degree:detail' app.pk %}">Open <i class="bi bi-arrow-right-short"></i></a></td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="5">
+                  <div class="empty-state">
+                    <div class="empty-icon"><i class="bi bi-inbox"></i></div>
+                    <h3>No recent applications yet</h3>
+                    <p>Recent application activity will appear here.</p>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

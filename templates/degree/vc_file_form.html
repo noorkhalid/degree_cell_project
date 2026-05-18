@@ -1,0 +1,194 @@
+{% extends 'base.html' %}
+{% load degree_extras %}
+
+{% block content %}
+<div class="vc-page">
+  <div class="vc-page-header d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+    <div>
+      <p class="eyebrow mb-2">VC Approval Workflow</p>
+      <h3 class="page-title mb-2">{% if is_edit %}Edit VC Approval File No. {{ vc_file.file_no|vc_file_no_display }}{% else %}Create VC Approval File{% endif %}</h3>
+      <p class="page-subtitle mb-0">{% if is_edit %}Update this draft VC file before it is submitted to the Vice Chancellor. Submitted files cannot be edited.{% else %}Select printed degree applications and create a clean batch file for Vice Chancellor approval.{% endif %}</p>
+    </div>
+    <div class="vc-header-summary">
+      <span class="summary-label">Available</span>
+      <strong>{{ available_apps|length }}</strong>
+      <span class="summary-label">printed application{{ available_apps|length|pluralize }}</span>
+    </div>
+  </div>
+
+  <form method="post" id="vc-file-form" novalidate>
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+      <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <div class="vc-grid">
+      <section class="content-card vc-card applications-card">
+        <div class="vc-card-header">
+          <div>
+            <h5 class="mb-1">Applications Ready for VC Approval</h5>
+            <p class="mb-0 text-muted small">Choose the printed applications that should be included in this approval file.</p>
+          </div>
+          <span class="badge rounded-pill text-bg-primary">Printed only</span>
+        </div>
+
+        <div class="vc-toolbar">
+          <div class="vc-search-wrap">
+            <i class="bi bi-search"></i>
+            <input type="search" id="vc-search" class="form-control" placeholder="Search by tracking no, student, CNIC, registration or program">
+          </div>
+          <button type="button" class="btn btn-light vc-select-all" id="vc-select-all">Select all</button>
+        </div>
+
+        {% if form.applications.errors %}
+          <div class="alert alert-danger mx-3 mb-3">{{ form.applications.errors }}</div>
+        {% endif %}
+
+        <div class="vc-table-wrap">
+          {% if available_apps %}
+            <table class="table vc-table align-middle mb-0">
+              <thead>
+                <tr>
+                  <th class="select-col"><input type="checkbox" id="vc-master-check" aria-label="Select all applications"></th>
+                  <th>Application</th>
+                  <th>Student</th>
+                  <th>Program</th>
+                  <th>CNIC</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="vc-app-table-body">
+                {% for app in available_apps %}
+                  <tr class="vc-app-row" data-search="{{ app.tracking_no }} {{ app.student_name }} {{ app.registration_no }} {{ app.cnic }} {{ app.program.name }} {{ app.institute.name }}">
+                    <td class="select-col">
+                      <input class="vc-app-check" type="checkbox" name="applications" value="{{ app.pk }}" id="app_{{ app.pk }}" {% if app.pk|stringformat:'s' in selected_app_ids %}checked{% endif %}>
+                    </td>
+                    <td>
+                      <label for="app_{{ app.pk }}" class="vc-primary-link mb-0">{{ app.tracking_no }}</label>
+                      <div class="vc-muted small">Reg: {{ app.registration_no }}</div>
+                    </td>
+                    <td>
+                      <div class="fw-bold">{{ app.student_name }}</div>
+                      <div class="vc-muted small">Father: {{ app.father_name }}</div>
+                    </td>
+                    <td>
+                      <div>{{ app.program.name }}</div>
+                      <div class="vc-muted small">{{ app.institute.name }}</div>
+                    </td>
+                    <td><code class="vc-code">{{ app.cnic|cnic_format }}</code></td>
+                    <td><span class="status-badge status-printed">{{ app.get_status_display }}</span></td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+            <div class="vc-empty-state d-none" id="vc-no-results">
+              <i class="bi bi-search"></i>
+              <strong>No matching applications</strong>
+              <span>Try a different tracking number, student name, CNIC, or program.</span>
+            </div>
+          {% else %}
+            <div class="vc-empty-state">
+              <i class="bi bi-inbox"></i>
+              <strong>No printed applications available</strong>
+              <span>Applications will appear here after they are marked as Printed.</span>
+            </div>
+          {% endif %}
+        </div>
+      </section>
+
+      <aside class="content-card vc-card file-details-card">
+        <div class="vc-card-header compact">
+          <div>
+            <h5 class="mb-1">File Details</h5>
+            <p class="mb-0 text-muted small">{% if is_edit %}Review changes before updating the draft file.{% else %}Review your batch before creating the file.{% endif %}</p>
+          </div>
+        </div>
+
+        <div class="selected-summary">
+          <div class="selected-count" id="selected-count">0</div>
+          <div>
+            <div class="fw-bold">Applications selected</div>
+            <div class="vc-muted small">These will be grouped into one VC approval file.</div>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label for="{{ form.remarks.id_for_label }}" class="form-label">Remarks</label>
+          {{ form.remarks }}
+          {% if form.remarks.errors %}<div class="text-danger small mt-1">{{ form.remarks.errors }}</div>{% endif %}
+          <div class="form-text">Optional notes for the approval file.</div>
+        </div>
+
+        <div class="vc-action-footer">
+          <a href="{% url 'degree:vc_file_list' %}" class="btn btn-light">Cancel</a>
+          <button type="submit" class="btn btn-primary" id="create-vc-button">{% if is_edit %}Update VC File{% else %}Create VC File{% endif %}</button>
+        </div>
+      </aside>
+    </div>
+  </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const searchInput = document.getElementById('vc-search');
+  const rows = Array.from(document.querySelectorAll('.vc-app-row'));
+  const checks = Array.from(document.querySelectorAll('.vc-app-check'));
+  const countEl = document.getElementById('selected-count');
+  const master = document.getElementById('vc-master-check');
+  const selectAllBtn = document.getElementById('vc-select-all');
+  const noResults = document.getElementById('vc-no-results');
+  const submitBtn = document.getElementById('create-vc-button');
+
+  function visibleRows() {
+    return rows.filter(row => !row.classList.contains('d-none'));
+  }
+
+  function updateCount() {
+    const selected = checks.filter(input => input.checked).length;
+    if (countEl) countEl.textContent = selected;
+    if (submitBtn) submitBtn.disabled = selected === 0;
+
+    const visibleChecks = visibleRows().map(row => row.querySelector('.vc-app-check')).filter(Boolean);
+    const visibleChecked = visibleChecks.filter(input => input.checked).length;
+    if (master) {
+      master.checked = visibleChecks.length > 0 && visibleChecked === visibleChecks.length;
+      master.indeterminate = visibleChecked > 0 && visibleChecked < visibleChecks.length;
+    }
+  }
+
+  function filterRows() {
+    const term = (searchInput?.value || '').toLowerCase().trim();
+    let shown = 0;
+    rows.forEach(row => {
+      const match = row.dataset.search.toLowerCase().includes(term);
+      row.classList.toggle('d-none', !match);
+      if (match) shown += 1;
+    });
+    if (noResults) noResults.classList.toggle('d-none', shown !== 0);
+    updateCount();
+  }
+
+  checks.forEach(input => input.addEventListener('change', updateCount));
+  if (searchInput) searchInput.addEventListener('input', filterRows);
+  if (master) {
+    master.addEventListener('change', function () {
+      visibleRows().forEach(row => {
+        const input = row.querySelector('.vc-app-check');
+        if (input) input.checked = master.checked;
+      });
+      updateCount();
+    });
+  }
+  if (selectAllBtn) {
+    selectAllBtn.addEventListener('click', function () {
+      const visibleChecks = visibleRows().map(row => row.querySelector('.vc-app-check')).filter(Boolean);
+      const shouldSelect = visibleChecks.some(input => !input.checked);
+      visibleChecks.forEach(input => input.checked = shouldSelect);
+      updateCount();
+    });
+  }
+  filterRows();
+});
+</script>
+{% endblock %}

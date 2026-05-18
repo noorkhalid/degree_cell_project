@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+{% load degree_extras %}
+{% block content %}
+<div class="vc-page">
+  <div class="vc-page-header d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+    <div>
+      <p class="eyebrow mb-2">Printing Workflow</p>
+      <h3 class="page-title mb-2">Bulk Print Details</h3>
+      <p class="page-subtitle mb-0">Enter Book No and Degree Sheet Serial No for one or many applications. Selected rows will automatically become Printed.</p>
+    </div>
+    <a href="{% url 'degree:processing' %}" class="btn btn-light rounded-4 fw-bold"><i class="bi bi-arrow-left me-1"></i> Processing Desk</a>
+  </div>
+
+  <form method="post">
+    {% csrf_token %}
+    <section class="content-card vc-card">
+      <div class="vc-card-header">
+        <div>
+          <h5 class="mb-1">Applications Awaiting Print Details</h5>
+          <p class="mb-0 text-muted small">Only In Process applications are shown here.</p>
+        </div>
+        <span class="badge rounded-pill text-bg-primary">{{ applications|length }} available</span>
+      </div>
+      <div class="vc-toolbar">
+        <div class="vc-search-wrap"><i class="bi bi-search"></i><input type="search" id="print-search" class="form-control" placeholder="Search by tracking no, student, registration or program"></div>
+        <button type="button" class="btn btn-light vc-select-all" id="print-select-all">Select all visible</button>
+      </div>
+      <div class="vc-table-wrap">
+        {% if applications %}
+        <table class="table vc-table align-middle mb-0">
+          <thead>
+            <tr>
+              <th class="select-col"><input type="checkbox" id="print-master-check"></th>
+              <th>Application</th>
+              <th>Student</th>
+              <th>Program</th>
+              <th>Book No</th>
+              <th>Degree Sheet Serial No</th>
+            </tr>
+          </thead>
+          <tbody id="print-table-body">
+          {% for app in applications %}
+            <tr class="print-row" data-search="{{ app.tracking_no }} {{ app.student_name }} {{ app.registration_no }} {{ app.program.name }} {{ app.cnic|cnic_format }}">
+              <td><input class="print-check" type="checkbox" name="application_ids" value="{{ app.pk }}"></td>
+              <td><a class="vc-primary-link text-decoration-none" href="{% url 'degree:detail' app.pk %}">{{ app.tracking_no }}</a><div class="vc-muted small">Reg: {{ app.registration_no }}</div></td>
+              <td><strong>{{ app.student_name }}</strong><div class="vc-muted small">Father: {{ app.father_name }}</div></td>
+              <td>{{ app.program.name }}</td>
+              <td><input class="form-control" name="degree_book_no_{{ app.pk }}" placeholder="Book no"></td>
+              <td><input class="form-control" name="degree_serial_no_{{ app.pk }}" placeholder="Sheet serial no"></td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        <div class="vc-empty-state d-none" id="print-no-results"><i class="bi bi-search"></i><strong>No matching applications</strong><span>Try another search term.</span></div>
+        {% else %}
+        <div class="vc-empty-state"><i class="bi bi-printer"></i><strong>No applications awaiting print details</strong><span>Applications appear here while they are In Process.</span></div>
+        {% endif %}
+      </div>
+      <div class="vc-action-footer">
+        <a href="{% url 'degree:processing' %}" class="btn btn-light">Cancel</a>
+        <button class="btn btn-primary" type="submit"><i class="bi bi-check2-circle me-1"></i> Save Selected & Mark Printed</button>
+      </div>
+    </section>
+  </form>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const rows = Array.from(document.querySelectorAll('.print-row'));
+  const checks = Array.from(document.querySelectorAll('.print-check'));
+  const search = document.getElementById('print-search');
+  const master = document.getElementById('print-master-check');
+  const btn = document.getElementById('print-select-all');
+  const noResults = document.getElementById('print-no-results');
+  function visibleRows(){ return rows.filter(r => !r.classList.contains('d-none')); }
+  function filter(){
+    const term = (search ? search.value : '').toLowerCase().trim();
+    let shown = 0;
+    rows.forEach(row => { const ok = row.dataset.search.toLowerCase().includes(term); row.classList.toggle('d-none', !ok); if(ok) shown++; });
+    if(noResults) noResults.classList.toggle('d-none', shown !== 0);
+  }
+  if(search) search.addEventListener('input', filter);
+  if(master) master.addEventListener('change', () => visibleRows().forEach(row => { const cb = row.querySelector('.print-check'); if(cb) cb.checked = master.checked; }));
+  if(btn) btn.addEventListener('click', () => visibleRows().forEach(row => { const cb = row.querySelector('.print-check'); if(cb) cb.checked = true; }));
+});
+</script>
+{% endblock %}

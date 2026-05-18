@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-hero mb-4">
+  <div>
+    <div class="eyebrow">Degree Delivery</div>
+    <h1>Deliver Degree - {{ app.tracking_no }}</h1>
+    <p>Choose the delivery mode. The form will show only the fields required for that mode.</p>
+  </div>
+  <div class="hero-pill"><strong>{{ app.student_name }}</strong><span>{{ app.registration_no }}</span></div>
+</div>
+
+<form method="post" class="delivery-card" novalidate>
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="alert alert-danger rounded-4">{{ form.non_field_errors }}</div>{% endif %}
+
+  <div class="delivery-section">
+    <label class="form-label fw-bold" for="{{ form.delivery_mode.id_for_label }}">Delivery mode</label>
+    {{ form.delivery_mode }}
+    {% for error in form.delivery_mode.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+  </div>
+
+  <div id="self-panel" class="mode-panel d-none">
+    <div class="info-box success">
+      <div class="info-icon"><i class="bi bi-person-check"></i></div>
+      <div>
+        <strong>Self delivery selected</strong>
+        <p class="mb-0">No additional recipient details are required. Click Mark Collected to close this application.</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="representative-panel" class="mode-panel d-none">
+    <div class="section-title"><i class="bi bi-person-badge me-1"></i>Representative details</div>
+    <div class="row g-3">
+      <div class="col-md-4">
+        <label class="form-label" for="{{ form.delivered_to_name.id_for_label }}">Representative name</label>
+        {{ form.delivered_to_name }}
+        {% for error in form.delivered_to_name.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" for="{{ form.delivered_to_cnic.id_for_label }}">Representative CNIC</label>
+        {{ form.delivered_to_cnic }}
+        {% for error in form.delivered_to_cnic.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" for="{{ form.delivered_to_mobile.id_for_label }}">Representative mobile no</label>
+        {{ form.delivered_to_mobile }}
+        <div class="field-hint">Format: 0300-0000000</div>
+        {% for error in form.delivered_to_mobile.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div id="courier-panel" class="mode-panel d-none">
+    <div class="section-title"><i class="bi bi-truck me-1"></i>Courier details</div>
+    <div class="row g-3">
+      <div class="col-md-4">
+        <label class="form-label" for="{{ form.courier_company_choice.id_for_label }}">Courier company</label>
+        {{ form.courier_company_choice }}
+        {% for error in form.courier_company_choice.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+        <div class="form-text">Manage courier names from Setup → Couriers.</div>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" for="{{ form.courier_tracking_no.id_for_label }}">Tracking ID</label>
+        {{ form.courier_tracking_no }}
+        {% for error in form.courier_tracking_no.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" for="{{ form.courier_date.id_for_label }}">Courier date</label>
+        {{ form.courier_date }}
+        {% for error in form.courier_date.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="delivery-actions">
+    <a class="btn btn-outline-secondary rounded-4" href="{% url 'degree:detail' app.pk %}">Cancel</a>
+    <button class="btn btn-success rounded-4 px-4"><i class="bi bi-check2-circle me-1"></i>Mark Collected</button>
+  </div>
+</form>
+
+<style>
+.delivery-card{background:#fff;border:1px solid #c9d8ef;border-radius:22px;box-shadow:0 18px 45px rgba(15,42,95,.08);overflow:hidden}.delivery-section{padding:24px;border-bottom:1px solid #e4edf8}.mode-panel{padding:24px;border-bottom:1px solid #e4edf8}.section-title{font-weight:800;color:#08204b;margin-bottom:14px;text-transform:uppercase;font-size:.78rem;letter-spacing:.06em}.info-box{display:flex;gap:14px;align-items:center;padding:18px;border-radius:18px;border:1px solid #cdebd7;background:#f2fff6;color:#11472a}.info-icon{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;background:#198754;color:#fff;font-size:1.25rem}.delivery-actions{display:flex;justify-content:flex-end;gap:12px;padding:18px 24px;background:#f8fbff}.hero-pill{background:#fff;border:1px solid #c9d8ef;border-radius:16px;padding:12px 18px;display:flex;flex-direction:column;gap:2px}.hero-pill span{color:#526581;font-size:.85rem}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  const mode = document.getElementById('{{ form.delivery_mode.id_for_label }}');
+  const panels = {
+    SELF: document.getElementById('self-panel'),
+    REPRESENTATIVE: document.getElementById('representative-panel'),
+    COURIER: document.getElementById('courier-panel')
+  };
+  function refresh(){
+    Object.values(panels).forEach(panel => panel.classList.add('d-none'));
+    if (panels[mode.value]) panels[mode.value].classList.remove('d-none');
+  }
+  mode.addEventListener('change', refresh);
+  refresh();});
+</script>
+{% endblock %}

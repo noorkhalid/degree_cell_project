@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% load degree_extras %}
+{% block content %}
+<div class="vc-page">
+  <div class="vc-page-header d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+    <div>
+      <p class="eyebrow mb-2">VC Approval Workflow</p>
+      <h3 class="page-title mb-2">VC File Management</h3>
+      <p class="page-subtitle mb-0">View created VC files, open file details, and create new approval batches.</p>
+    </div>
+    <div class="d-flex gap-2 align-items-center flex-wrap">
+      <div class="vc-header-summary">
+        <span class="summary-label">Available for new file</span>
+        <strong>{{ available_count }}</strong>
+      </div>
+      <a href="{% url 'degree:vc_file_create' %}" class="btn btn-primary rounded-4 fw-bold px-4">
+        <i class="bi bi-plus-lg me-1"></i> New VC File
+      </a>
+    </div>
+  </div>
+
+  <section class="content-card vc-card">
+    <div class="vc-card-header">
+      <div>
+        <h5 class="mb-1">Created VC Files</h5>
+        <p class="mb-0 text-muted small">Previously created files remain visible here for submission, return, printing, and audit history.</p>
+      </div>
+    </div>
+
+    <div class="vc-table-wrap">
+      {% if files %}
+        <table class="table vc-table align-middle mb-0">
+          <thead>
+            <tr>
+              <th>File No</th>
+              <th>Applications</th>
+              <th>Status</th>
+              <th>Created By</th>
+              <th>Created</th>
+              <th>Submitted</th>
+              <th>Returned</th>
+              <th class="text-end">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for file in files %}
+              <tr>
+                <td><span class="vc-primary-link">File No. {{ file.file_no|vc_file_no_display }}</span></td>
+                <td><strong>{{ file.applications_count }}</strong> application{{ file.applications_count|pluralize }}</td>
+                <td>
+                  {% if file.status == 'DRAFT' %}
+                    <span class="status-badge status-draft">{{ file.get_status_display }}</span>
+                  {% elif file.status == 'SUBMITTED' %}
+                    <span class="status-badge status-submitted">{{ file.get_status_display }}</span>
+                  {% else %}
+                    <span class="status-badge status-returned">{{ file.get_status_display }}</span>
+                  {% endif %}
+                </td>
+                <td>{{ file.created_by }}</td>
+                <td>{{ file.created_at|date:'d-m-Y h:i A' }}</td>
+                <td>{% if file.submitted_at %}{{ file.submitted_at|date:'d-m-Y h:i A' }}{% else %}<span class="vc-muted">—</span>{% endif %}</td>
+                <td>{% if file.returned_at %}{{ file.returned_at|date:'d-m-Y h:i A' }}{% else %}<span class="vc-muted">—</span>{% endif %}</td>
+                <td class="text-end"><div class="d-flex justify-content-end gap-2">{% if file.status == 'DRAFT' %}<a class="btn btn-primary btn-sm rounded-pill fw-bold" href="{% url 'degree:vc_file_edit' file.pk %}">Edit</a>{% endif %}<a class="btn btn-light btn-sm rounded-pill fw-bold" href="{% url 'degree:vc_file_detail' file.pk %}">Open <i class="bi bi-arrow-right"></i></a></div></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="vc-empty-state">
+          <i class="bi bi-folder2-open"></i>
+          <strong>No VC files created yet</strong>
+          <span>Create your first VC approval file from printed applications.</span>
+          <a href="{% url 'degree:vc_file_create' %}" class="btn btn-primary rounded-4 mt-2">Create VC File</a>
+        </div>
+      {% endif %}
+    </div>
+  </section>
+</div>
+{% endblock %}

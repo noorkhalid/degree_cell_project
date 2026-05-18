@@ -1,0 +1,43 @@
+<aside class="sidebar {{ sidebar_class }}">
+  <div class="sidebar-header">
+    <div class="sidebar-title">Navigation</div>
+    <div class="sidebar-subtitle">Degree Cell Management</div>
+  </div>
+  <nav class="sidebar-nav" aria-label="Main navigation">
+    <a class="side-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" {% if request.resolver_match.url_name == 'dashboard' %}aria-current="page"{% endif %} href="{% url 'dashboard' %}">
+      <i class="bi bi-speedometer2"></i><span>Dashboard</span>
+    </a>
+    <a class="side-link {% if request.resolver_match.namespace == 'degree' and request.resolver_match.url_name == 'create' %}active{% endif %}" {% if request.resolver_match.namespace == 'degree' and request.resolver_match.url_name == 'create' %}aria-current="page"{% endif %} href="{% url 'degree:create' %}">
+      <i class="bi bi-file-earmark-plus"></i><span>New Application</span>
+    </a>
+    <a class="side-link {% if request.resolver_match.namespace == 'degree' and request.resolver_match.url_name in 'list detail receipt verify send_for_printing receive_for_print mark_printed deliver cancel export complete_documents' %}active{% endif %}" {% if request.resolver_match.namespace == 'degree' and request.resolver_match.url_name in 'list detail receipt verify send_for_printing receive_for_print mark_printed deliver cancel export complete_documents' %}aria-current="page"{% endif %} href="{% url 'degree:list' %}">
+      <i class="bi bi-files"></i><span>Applications</span>
+    </a>
+    <a class="side-link {% if request.resolver_match.namespace == 'degree' and request.resolver_match.url_name == 'processing' %}active{% endif %}" {% if request.resolver_match.namespace == 'degree' and request.resolver_match.url_name == 'processing' %}aria-current="page"{% endif %} href="{% url 'degree:processing' %}">
+      <i class="bi bi-arrow-left-right"></i><span>Processing Desk</span>
+    </a>
+    <a class="side-link {% if request.resolver_match.namespace == 'degree' and 'vc_file' in request.resolver_match.url_name %}active{% endif %}" {% if request.resolver_match.namespace == 'degree' and 'vc_file' in request.resolver_match.url_name %}aria-current="page"{% endif %} href="{% url 'degree:vc_file_list' %}">
+      <i class="bi bi-folder-check"></i><span>VC File</span>
+    </a>
+    <a class="side-link {% if request.resolver_match.namespace == 'degree' and 'fee_structure' in request.resolver_match.url_name %}active{% endif %}" {% if request.resolver_match.namespace == 'degree' and 'fee_structure' in request.resolver_match.url_name %}aria-current="page"{% endif %} href="{% url 'degree:fee_structures' %}">
+      <i class="bi bi-cash-coin"></i><span>Fee Structure</span>
+    </a>
+    <a class="side-link {% if request.resolver_match.namespace == 'reports' %}active{% endif %}" {% if request.resolver_match.namespace == 'reports' %}aria-current="page"{% endif %} href="{% url 'reports:home' %}">
+      <i class="bi bi-graph-up-arrow"></i><span>Reports</span>
+    </a>
+
+    <div class="nav-section">Setup</div>
+    <a class="side-link {% if request.resolver_match.namespace == 'academics' and 'institute' in request.resolver_match.url_name %}active{% endif %}" {% if request.resolver_match.namespace == 'academics' and 'institute' in request.resolver_match.url_name %}aria-current="page"{% endif %} href="{% url 'academics:institutes' %}">
+      <i class="bi bi-building"></i><span>Institutes</span>
+    </a>
+    <a class="side-link {% if request.resolver_match.namespace == 'academics' and 'program' in request.resolver_match.url_name %}active{% endif %}" {% if request.resolver_match.namespace == 'academics' and 'program' in request.resolver_match.url_name %}aria-current="page"{% endif %} href="{% url 'academics:programs' %}">
+      <i class="bi bi-journal-bookmark"></i><span>Programs</span>
+    </a>
+    <a class="side-link {% if request.resolver_match.namespace == 'academics' and 'bank' in request.resolver_match.url_name %}active{% endif %}" {% if request.resolver_match.namespace == 'academics' and 'bank' in request.resolver_match.url_name %}aria-current="page"{% endif %} href="{% url 'academics:banks' %}">
+      <i class="bi bi-bank"></i><span>Banks</span>
+    </a>
+    <a class="side-link {% if request.resolver_match.namespace == 'academics' and 'courier' in request.resolver_match.url_name %}active{% endif %}" {% if request.resolver_match.namespace == 'academics' and 'courier' in request.resolver_match.url_name %}aria-current="page"{% endif %} href="{% url 'academics:couriers' %}">
+      <i class="bi bi-truck"></i><span>Couriers</span>
+    </a>
+  </nav>
+</aside>

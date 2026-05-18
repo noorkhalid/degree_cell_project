@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% load degree_extras %}
+{% block content %}
+<div class="receipt-pos">
+  <div class="text-center"><strong>GOMAL UNIVERSITY</strong><br>Degree Cell Receipt</div>
+  <hr>
+  <div><b>Tracking:</b> {{ app.tracking_no }}</div>
+  <div><b>Name:</b> {{ app.student_name }}</div>
+  <div><b>Email:</b> {{ app.email|default:'-' }}</div>
+  <div><b>CNIC:</b> {{ app.cnic|cnic_format }}</div>
+  <div><b>Program:</b> {{ app.program.name }}</div>
+  <div><b>Type:</b> {{ app.get_application_type_display }}</div>
+  <div><b>Fee:</b> Rs. {{ app.required_fee_at_entry }}</div>
+  <div><b>Received:</b> {{ app.created_at|date:'d-m-Y H:i' }}</div>
+  <div><b>By:</b> {{ app.created_by.get_full_name|default:app.created_by.username }}</div>
+  <hr>
+  <div class="small">Keep this receipt for status inquiry.</div>
+  <div class="stamp-box">Stamp / Signature</div>
+</div>
+<button onclick="window.print()" class="btn btn-dark mt-3 no-print">Print Receipt</button>
+{% endblock %}

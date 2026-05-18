@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% load degree_extras %}
+{% block content %}
+<div class="page-heading mb-3">
+  <div>
+    <h1 class="page-title">{{ app.tracking_no }} - {{ app.student_name }}</h1>
+    <p class="page-subtitle mb-0">Application detail, documents, fee snapshot, and processing history.</p>
+  </div>
+  <div class="d-flex flex-wrap gap-2">
+    {% if can_admin_manage %}
+      <a class="btn btn-primary" href="{% url 'degree:edit' app.pk %}"><i class="bi bi-pencil-square me-1"></i>Edit</a>
+      <a class="btn btn-outline-danger" href="{% url 'degree:delete' app.pk %}"><i class="bi bi-trash me-1"></i>Delete</a>
+    {% endif %}
+    <a class="btn btn-outline-dark" href="{% url 'degree:receipt' app.pk %}">Print Receipt</a>
+  </div>
+</div>
+{% if app.checklist and app.checklist.missing_documents %}
+<div class="alert alert-warning rounded-4 shadow-sm">
+  <strong>Objection:</strong> The application is saved, but these documents are still missing. Processing will remain blocked until they are completed.
+  <ul class="mb-0 mt-2 missing-doc-list">{% for doc in app.checklist.missing_documents %}<li>{{ doc }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+<div class="row g-3">
+  <div class="col-md-8"><div class="card detail-card"><div class="card-body">
+    <h5 class="card-title-text mb-3">Application</h5>
+    <table class="table table-sm detail-table">
+      <tr><th>Status</th><td><span class="badge text-bg-secondary">{{ app.get_status_display }}</span></td></tr>
+      <tr><th>Father</th><td>{{ app.father_name }}</td></tr>
+      <tr><th>CNIC</th><td>{{ app.cnic|cnic_format }}</td></tr>
+      <tr><th>Mobile</th><td>{{ app.mobile|mobile_format }}</td></tr>
+      <tr><th>Email</th><td>{{ app.email|default:'-' }}</td></tr>
+      <tr><th>Registration</th><td>{{ app.registration_no }}</td></tr>
+      <tr><th>Roll No</th><td>{{ app.roll_no|default:'-' }}</td></tr>
+      <tr><th>Program</th><td>{{ app.program }}</td></tr>
+      <tr><th>Institute</th><td>{{ app.institute }}</td></tr>
+      <tr><th>Application Type</th><td>{{ app.get_application_type_display }}</td></tr>
+      <tr><th>Timing</th><td>{{ app.get_fee_timing_at_entry_display }}</td></tr>
+      <tr><th>Bank Challan Fee</th><td>Rs. {{ app.required_fee_at_entry }} / Paid Rs. {{ app.total_paid }}</td></tr>
+      <tr><th>Fee Version</th><td>{% if app.fee_structure_at_entry %}Effective {{ app.fee_structure_at_entry.effective_from }}{% if app.fee_structure_at_entry.effective_to %} to {{ app.fee_structure_at_entry.effective_to }}{% endif %}{% else %}<span class='text-muted'>Saved amount snapshot only</span>{% endif %}</td></tr>
+      <tr><th>Verified Date</th><td>{{ app.verified_result_date|default:'-' }}</td></tr>
+      <tr><th>Degree Serial</th><td>{{ app.degree_serial_no|default:'-' }}</td></tr>
+      <tr><th>Degree Book No</th><td>{{ app.degree_book_no|default:'-' }}</td></tr>
+      <tr><th>Printed At</th><td>{{ app.printed_at|default:'-' }}</td></tr>
+      {% if app.status == 'DELIVERED' %}
+      <tr><th>Delivery Mode</th><td>{{ app.get_delivery_mode_display|default:'-' }}</td></tr>
+      <tr><th>Collected At</th><td>{{ app.delivered_at|default:'-' }}</td></tr>
+      {% if app.delivery_mode == 'REPRESENTATIVE' %}
+      <tr><th>Representative</th><td>{{ app.delivered_to_name }} / {{ app.delivered_to_cnic|cnic_format }} / {{ app.delivered_to_mobile|mobile_format }}</td></tr>
+      {% elif app.delivery_mode == 'COURIER' %}
+      <tr><th>Courier</th><td>{{ app.courier_company }} / Tracking: {{ app.courier_tracking_no }} / Date: {{ app.courier_date }}</td></tr>
+      {% endif %}
+      {% endif %}
+    </table>
+  </div></div></div>
+  <div class="col-md-4"><div class="card action-card"><div class="card-body"><h5 class="card-title-text mb-3">Actions</h5>
+    {% if app.status == 'DOCUMENTS_REQUIRED' %}<div class="alert alert-warning rounded-4">Processing is blocked until all required documents are completed.</div>{% endif %}
+    {% if app.status == 'DOCUMENTS_REQUIRED' %}<a class="btn btn-warning w-100 mb-2" href="{% url 'degree:update_documents' app.pk %}">Complete Documents</a>{% endif %}
+    {% if app.status == 'PENDING_VERIFICATION' and app.checklist and app.checklist.missing_documents %}<a class="btn btn-outline-primary w-100 mb-2" href="{% url 'degree:update_documents' app.pk %}">Update Documents</a>{% endif %}
+    {% if app.status == 'PENDING_VERIFICATION' %}<a class="btn btn-primary w-100 mb-2" href="{% url 'degree:mark_printed' app.pk %}"><i class="bi bi-printer me-1"></i>Enter Print Details</a>{% endif %}
+    
+    
+    
+    {% if app.status == 'READY_FOR_COLLECTION' %}<a class="btn btn-success w-100 mb-2" href="{% url 'degree:deliver' app.pk %}">Deliver</a>{% endif %}
+    {% if app.status != 'CANCELLED' and app.status != 'DELIVERED' %}<a class="btn btn-outline-danger w-100" href="{% url 'degree:cancel' app.pk %}">Cancel</a>{% endif %}
+  </div></div></div>
+</div>
+
+<div class="card mt-3 detail-card"><div class="card-body"><h5 class="card-title-text mb-3">Required Documents</h5>
+{% if app.checklist %}
+<table class="table table-sm mb-0 detail-table">
+<tr><th>Application Form</th><td>{% if app.checklist.form_completely_filled %}<span class="badge text-bg-success">Received</span>{% else %}<span class="badge text-bg-danger">Missing</span>{% endif %}</td></tr>
+<tr><th>Application Form Signed</th><td>{% if app.checklist.form_signed %}<span class="badge text-bg-success">Received</span>{% else %}<span class="badge text-bg-danger">Missing</span>{% endif %}</td></tr>
+<tr><th>Required Attestations</th><td>{% if app.checklist.attestations_complete %}<span class="badge text-bg-success">Received</span>{% else %}<span class="badge text-bg-danger">Missing</span>{% endif %}</td></tr>
+<tr><th>Paid Bank Challan</th><td>{% if app.checklist.paid_challan_attached %}<span class="badge text-bg-success">Received</span>{% else %}<span class="badge text-bg-danger">Missing</span>{% endif %}</td></tr>
+<tr><th>Original Clearance Certificate</th><td>{% if app.checklist.original_clearance_attached %}<span class="badge text-bg-success">Received</span>{% else %}<span class="badge text-bg-danger">Missing</span>{% endif %}</td></tr>
+<tr><th>Transcript / DMC Copy</th><td>{% if app.checklist.transcript_dmc_copy_attached %}<span class="badge text-bg-success">Received</span>{% else %}<span class="badge text-bg-danger">Missing</span>{% endif %}</td></tr>
+<tr><th>CNIC Copy</th><td>{% if app.checklist.cnic_copy_attached %}<span class="badge text-bg-success">Received</span>{% else %}<span class="badge text-bg-danger">Missing</span>{% endif %}</td></tr>
+</table>
+{% else %}<p class="text-muted mb-0">No checklist saved.</p>{% endif %}
+</div></div>
+<div class="card mt-3 detail-card"><div class="card-body"><h5 class="card-title-text mb-3">Status History</h5><table class="table table-sm detail-table"><tr><th>Date</th><th>From</th><th>To</th><th>User</th><th>Remarks</th></tr>{% for log in logs %}<tr><td>{{ log.created_at }}</td><td>{{ log.get_from_status_display }}</td><td>{{ log.get_to_status_display }}</td><td>{{ log.changed_by }}</td><td>{{ log.remarks }}</td></tr>{% endfor %}</table></div></div>
+{% endblock %}

@@ -1,0 +1,193 @@
+{% extends 'base.html' %}
+{% block title %}New Degree Application | Degree Cell{% endblock %}
+{% block content %}
+<div class="page-heading mb-4">
+  <div>
+    <h1 class="page-title">New Degree Application</h1>
+    <p class="page-subtitle mb-0">Enter the application even if some documents are missing. Incomplete files stay in <strong>Objection</strong> status.</p>
+  </div>
+</div>
+
+<form method="post" novalidate>{% csrf_token %}
+  <div class="card checklist-card checklist-gate checklist-compact mb-3">
+    <div class="card-header d-flex align-items-center gap-2">
+      <i class="bi bi-check2-square text-primary"></i>
+      <span class="card-title-text">Required Document Checklist</span>
+      <span class="badge text-bg-info ms-auto">Check received documents only</span>
+    </div>
+    <div class="card-body p-3">
+      <div class="checklist-note mb-2">Documents not received should remain unchecked; saved applications stay blocked until completed.</div>
+      <div class="row g-2">
+        {% for field in checklist_form %}
+        <div class="col-sm-6 col-xl-3 check-item">
+          <label>{{ field }} <span>{{ field.label }}</span></label>
+          <div class="text-danger small mt-1">{{ field.errors }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  {% if duplicate_matches %}<div class="alert alert-warning rounded-4"><strong>Possible duplicate/history found.</strong><ul>{% for d in duplicate_matches %}<li>{{ d.tracking_no }} - {{ d.student_name }} - {{ d.registration_no }} - {{ d.program.name }}</li>{% endfor %}</ul>You may still save this as a new application.</div>{% endif %}
+  {% if form.non_field_errors %}<div class="alert alert-danger rounded-4">{{ form.non_field_errors }}</div>{% endif %}
+
+  <div class="card entry-form professional-form">
+    <div class="card-header d-flex align-items-center gap-2">
+      <i class="bi bi-pencil-square text-primary"></i>
+      <span class="card-title-text">Application Entry</span>
+    </div>
+    <div class="card-body p-3 p-lg-4">
+      <div class="form-section pro-form-section">
+        <div class="section-heading-row">
+          <div>
+            <div class="form-section-title"><i class="bi bi-person-lines-fill"></i> Student Information</div>
+            <p class="section-help mb-0">Capture the student's identity and contact details in a clean two-column layout.</p>
+          </div>
+        </div>
+        <div class="row g-4 pro-field-grid">
+          <div class="col-lg-6 field-wrap"><label class="form-label" for="{{ form.student_name.id_for_label }}">{{ form.student_name.label }}</label>{{ form.student_name }}<div class="text-danger small mt-1">{{ form.student_name.errors }}</div></div>
+          <div class="col-lg-6 field-wrap"><label class="form-label" for="{{ form.father_name.id_for_label }}">{{ form.father_name.label }}</label>{{ form.father_name }}<div class="text-danger small mt-1">{{ form.father_name.errors }}</div></div>
+          <div class="col-lg-6 field-wrap"><label class="form-label" for="{{ form.cnic.id_for_label }}">{{ form.cnic.label }}</label>{{ form.cnic }}<div class="field-hint">Format: 00000-0000000-0</div><div class="text-danger small mt-1">{{ form.cnic.errors }}</div></div>
+          <div class="col-lg-6 field-wrap"><label class="form-label" for="{{ form.registration_no.id_for_label }}">{{ form.registration_no.label }}</label>{{ form.registration_no }}<div class="text-danger small mt-1">{{ form.registration_no.errors }}</div></div>
+          <div class="col-lg-6 field-wrap"><label class="form-label" for="{{ form.roll_no.id_for_label }}">{{ form.roll_no.label }}</label>{{ form.roll_no }}<div class="text-danger small mt-1">{{ form.roll_no.errors }}</div></div>
+          <div class="col-lg-6 field-wrap"><label class="form-label" for="{{ form.mobile.id_for_label }}">{{ form.mobile.label }}</label>{{ form.mobile }}<div class="field-hint">Format: 0300-0000000</div><div class="text-danger small mt-1">{{ form.mobile.errors }}</div></div>
+          <div class="col-lg-6 field-wrap"><label class="form-label" for="{{ form.email.id_for_label }}">{{ form.email.label }}</label>{{ form.email }}<div class="text-danger small mt-1">{{ form.email.errors }}</div></div>
+          <div class="col-12 field-wrap"><label class="form-label" for="{{ form.postal_address.id_for_label }}">{{ form.postal_address.label }}</label>{{ form.postal_address }}<div class="text-danger small mt-1">{{ form.postal_address.errors }}</div></div>
+        </div>
+      </div>
+
+      <div class="form-section pro-form-section">
+        <div class="section-heading-row">
+          <div>
+            <div class="form-section-title"><i class="bi bi-mortarboard-fill"></i> Academic & Fee Type</div>
+            <p class="section-help mb-0">Choose the program details used for degree processing and fee calculation.</p>
+          </div>
+        </div>
+        <div class="row g-4 pro-field-grid">
+          <div class="col-lg-6 field-wrap"><label class="form-label" for="{{ form.institute.id_for_label }}">{{ form.institute.label }}</label>{{ form.institute }}<div class="text-danger small mt-1">{{ form.institute.errors }}</div></div>
+          <div class="col-lg-6 field-wrap"><label class="form-label" for="{{ form.program.id_for_label }}">{{ form.program.label }}</label>{{ form.program }}<div class="text-danger small mt-1">{{ form.program.errors }}</div></div>
+          <div class="col-lg-6 field-wrap"><label class="form-label" for="{{ form.timing.id_for_label }}">{{ form.timing.label }}</label>{{ form.timing }}<div class="text-danger small mt-1">{{ form.timing.errors }}</div></div>
+          <div class="col-lg-6 field-wrap"><label class="form-label" for="{{ form.application_type.id_for_label }}">{{ form.application_type.label }}</label>{{ form.application_type }}<div class="text-danger small mt-1">{{ form.application_type.errors }}</div></div>
+        </div>
+      </div>
+
+      <div class="form-section pro-form-section mb-0">
+        <div class="section-heading-row">
+          <div>
+            <div class="form-section-title"><i class="bi bi-receipt-cutoff"></i> Bank Challan & Receiving</div>
+            <p class="section-help mb-0">Record challan information. Amount is calculated automatically from the active fee schedule.</p>
+          </div>
+        </div>
+        <div class="row g-4 pro-field-grid">
+          <div class="col-lg-6 field-wrap"><label class="form-label" for="{{ form.bank.id_for_label }}">{{ form.bank.label }}</label>{{ form.bank }}<div class="text-danger small mt-1">{{ form.bank.errors }}</div></div>
+          <div class="col-lg-6 field-wrap"><label class="form-label" for="{{ form.challan_no.id_for_label }}">{{ form.challan_no.label }}</label>{{ form.challan_no }}<div class="text-danger small mt-1">{{ form.challan_no.errors }}</div></div>
+          <div class="col-lg-6 field-wrap date-field-wrap"><label class="form-label" for="{{ form.challan_date.id_for_label }}">{{ form.challan_date.label }}</label><div class="date-control" data-date-control><span class="date-display" data-date-display>Select Date</span>{{ form.challan_date }}<i class="bi bi-calendar3 date-icon"></i></div><div class="text-danger small mt-1">{{ form.challan_date.errors }}</div></div>
+          <div class="col-lg-6 field-wrap fee-field"><label class="form-label" for="{{ form.challan_amount.id_for_label }}">{{ form.challan_amount.label }}</label>{{ form.challan_amount }}<div id="feeHelp" class="form-text">Select Program, Timing, and Application Type to calculate challan amount from fee schedule.</div><div class="text-danger small mt-1">{{ form.challan_amount.errors }}</div></div>
+          <div class="col-lg-6 field-wrap"><label class="form-label" for="{{ form.received_mode.id_for_label }}">{{ form.received_mode.label }}</label>{{ form.received_mode }}<div class="text-danger small mt-1">{{ form.received_mode.errors }}</div></div>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary btn-save"><i class="bi bi-save me-2"></i>Save Application</button>
+      </div>
+    </div>
+  </div>
+</form>
+
+<script>
+(function () {
+  document.querySelectorAll('[data-date-control]').forEach(function (wrap) {
+    const input = wrap.querySelector('.date-picker-input');
+    const display = wrap.querySelector('[data-date-display]');
+    if (!input || !display) return;
+    input.type = 'date';
+    input.classList.add('date-input-real');
+    function formatDisplay(value) {
+      if (!value) return 'Select Date';
+      const parts = value.split('-');
+      return parts.length === 3 ? parts[2] + '-' + parts[1] + '-' + parts[0] : value;
+    }
+    function syncDateDisplay() {
+      display.textContent = formatDisplay(input.value);
+      wrap.classList.toggle('has-date', !!input.value);
+    }
+    wrap.addEventListener('click', function () {
+      input.focus();
+      if (typeof input.showPicker === 'function') {
+        try { input.showPicker(); } catch (e) {}
+      }
+    });
+    input.addEventListener('change', syncDateDisplay);
+    syncDateDisplay();
+  });
+})();
+</script>
+<script>
+(function () {
+  const program = document.getElementById('id_program');
+  const timing = document.getElementById('id_timing');
+  const appType = document.getElementById('id_application_type');
+  const amount = document.getElementById('id_challan_amount');
+  const help = document.getElementById('feeHelp');
+  if (!program || !timing || !appType || !amount) return;
+
+  function setFeeMessage(text, isError) {
+    if (help) {
+      help.textContent = text;
+      help.classList.toggle('text-danger', !!isError);
+      help.classList.toggle('text-success', !isError && !!text);
+    }
+  }
+
+  function syncApplicationTypeFromTiming() {
+    if (timing.value === 'BEFORE_TIME') {
+      appType.value = 'URGENT';
+      appType.setAttribute('data-auto-urgent', '1');
+    } else if (appType.getAttribute('data-auto-urgent') === '1' && appType.value === 'URGENT') {
+      appType.removeAttribute('data-auto-urgent');
+    }
+  }
+
+  function fetchFee() {
+    syncApplicationTypeFromTiming();
+    const programValue = program.value;
+    const timingValue = timing.value;
+    const typeValue = appType.value;
+    if (!programValue || !timingValue || !typeValue) {
+      amount.value = '';
+      setFeeMessage('Select Program, Timing, and Application Type to calculate challan amount from fee schedule.', false);
+      return;
+    }
+    const url = "{% url 'degree:get_application_fee' %}"
+      + '?program=' + encodeURIComponent(programValue)
+      + '&timing=' + encodeURIComponent(timingValue)
+      + '&application_type=' + encodeURIComponent(typeValue);
+    fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+      .then(response => response.json())
+      .then(data => {
+        if (data.application_type) {
+          appType.value = data.application_type;
+        }
+        if (data.ok) {
+          amount.value = data.amount;
+          setFeeMessage('Calculated from fee schedule: ' + data.program_level + ' / ' + data.timing_label + ' / ' + data.application_type_label + '.', false);
+        } else {
+          amount.value = '';
+          setFeeMessage(data.message || 'Fee not found.', true);
+        }
+      })
+      .catch(() => {
+        amount.value = '';
+        setFeeMessage('Could not calculate fee. Check fee structure.', true);
+      });
+  }
+
+  program.addEventListener('change', fetchFee);
+  timing.addEventListener('change', fetchFee);
+  appType.addEventListener('change', function () {
+    appType.removeAttribute('data-auto-urgent');
+    fetchFee();
+  });
+  fetchFee();
+})();
+</script>
+{% endblock %}
