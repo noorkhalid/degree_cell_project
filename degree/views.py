@@ -2,7 +2,8 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction, connection
 from django.db.models.deletion import ProtectedError
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Value
+from django.db.models.functions import Replace
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -163,6 +164,147 @@ def get_application_fee(request):
         'application_type_label': dict(ApplicationType.choices)[application_type],
         'program_level': program.level,
     })
+
+
+
+PUBLIC_STATUS_STEPS = [
+    ApplicationStatus.DOCUMENTS_REQUIRED,
+    ApplicationStatus.PENDING_VERIFICATION,
+    ApplicationStatus.PRINTED_PENDING_SIGNATURE,
+    ApplicationStatus.VC_FILE,
+    ApplicationStatus.READY_FOR_COLLECTION,
+    ApplicationStatus.DELIVERED,
+]
+
+PUBLIC_STATUS_ICONS = {
+    ApplicationStatus.DOCUMENTS_REQUIRED: 'bi-exclamation-circle-fill',
+    ApplicationStatus.PENDING_VERIFICATION: 'bi-hourglass-split',
+    ApplicationStatus.PRINTED_PENDING_SIGNATURE: 'bi-printer-fill',
+    ApplicationStatus.VC_FILE: 'bi-folder-check',
+    ApplicationStatus.READY_FOR_COLLECTION: 'bi-check2-circle',
+    ApplicationStatus.DELIVERED: 'bi-award-fill',
+    ApplicationStatus.CANCELLED: 'bi-x-octagon-fill',
+}
+
+PUBLIC_STATUS_CLASSES = {
+    ApplicationStatus.DOCUMENTS_REQUIRED: 'objection',
+    ApplicationStatus.PENDING_VERIFICATION: 'process',
+    ApplicationStatus.PRINTED_PENDING_SIGNATURE: 'printed',
+    ApplicationStatus.VC_FILE: 'vc-file',
+    ApplicationStatus.READY_FOR_COLLECTION: 'ready',
+    ApplicationStatus.DELIVERED: 'collected',
+    ApplicationStatus.CANCELLED: 'cancelled',
+}
+
+
+def prepare_public_tracking_application(app):
+    """Attach display-only tracking helpers for the public tracking page.
+
+    This helper also makes Objection applications clear for students by
+    exposing the deficient/missing checklist items on the public page and
+    receipt. Legacy status codes are normalized only for display/progress so
+    older local databases keep working without a data migration.
+    """
+    display_status = LEGACY_STATUS_MAP.get(app.status, app.status)
+
+    if display_status == ApplicationStatus.CANCELLED:
+        step_index = 0
+        progress = 100
+    else:
+        try:
+            step_index = PUBLIC_STATUS_STEPS.index(display_status)
+        except ValueError:
+            step_index = 0
+        progress = round(((step_index + 1) / len(PUBLIC_STATUS_STEPS)) * 100)
+
+    public_steps = []
+    for index, status in enumerate(PUBLIC_STATUS_STEPS):
+        public_steps.append({
+            'code': status,
+            'label': ApplicationStatus(status).label,
+            'icon': PUBLIC_STATUS_ICONS.get(status, 'bi-circle-fill'),
+            'state': 'done' if index < step_index else ('current' if index == step_index else 'pending'),
+        })
+
+    missing_documents = []
+    try:
+        checklist = app.checklist
+    except Exception:
+        checklist = None
+    if checklist:
+        missing_documents = list(checklist.missing_documents)
+
+    # If an application is in Objection but no checklist row exists, keep the
+    # message useful instead of silently hiding the objection reason area.
+    if display_status == ApplicationStatus.DOCUMENTS_REQUIRED and not missing_documents:
+        missing_documents = ['Required documents are incomplete. Please contact Degree Cell for details.']
+
+    app.public_display_status = display_status
+    app.public_display_status_label = ApplicationStatus(display_status).label if display_status in ApplicationStatus.values else app.get_status_display()
+    app.public_progress = progress
+    app.public_steps = public_steps
+    app.public_status_class = PUBLIC_STATUS_CLASSES.get(display_status, 'process')
+    app.public_status_icon = PUBLIC_STATUS_ICONS.get(display_status, 'bi-info-circle-fill')
+    app.public_missing_documents = missing_documents
+    return app
+
+
+def public_tracking(request):
+    """Public CNIC-based degree application tracking page.
+
+    This page intentionally has no login_required decorator so students can
+    check their processing history from outside the staff portal.
+    """
+    ensure_compatible_schema()
+    raw_cnic = (request.GET.get('cnic') or '').strip()
+    cnic_digits = ''.join(ch for ch in raw_cnic if ch.isdigit())
+    applications = []
+    searched = False
+    error = ''
+
+    if raw_cnic:
+        searched = True
+        if len(cnic_digits) != 13:
+            error = 'Please enter a valid 13-digit CNIC number.'
+        else:
+            cnic_formatted = format_cnic_for_display(cnic_digits)
+            applications = list(
+                DegreeApplication.objects
+                .select_related('program', 'institute', 'checklist')
+                .prefetch_related('status_logs')
+                .annotate(
+                    cnic_no_dash=Replace(Replace('cnic', Value('-'), Value('')), Value(' '), Value(''))
+                )
+                .filter(Q(cnic=cnic_digits) | Q(cnic=cnic_formatted) | Q(cnic_no_dash=cnic_digits))
+                .order_by('-created_at')
+            )
+            applications = [prepare_public_tracking_application(app) for app in applications]
+
+    return render(request, 'degree/public_tracking.html', {
+        'cnic': raw_cnic,
+        'cnic_digits': cnic_digits,
+        'searched': searched,
+        'error': error,
+        'applications': applications,
+    })
+
+
+def public_receipt(request, tracking_no):
+    """Public printable receipt, protected by matching CNIC query parameter."""
+    ensure_compatible_schema()
+    cnic_digits = ''.join(ch for ch in (request.GET.get('cnic') or '').strip() if ch.isdigit())
+    app = get_object_or_404(
+        DegreeApplication.objects.select_related('program', 'institute', 'checklist').prefetch_related('status_logs'),
+        tracking_no=tracking_no
+    )
+    app_cnic = ''.join(ch for ch in str(app.cnic or '') if ch.isdigit())
+    if len(cnic_digits) != 13 or cnic_digits != app_cnic:
+        return render(request, 'degree/public_receipt.html', {
+            'app': None,
+            'error': 'Invalid receipt link. Please search again with the correct CNIC number.',
+        }, status=403)
+    app = prepare_public_tracking_application(app)
+    return render(request, 'degree/public_receipt.html', {'app': app, 'error': ''})
 
 
 @role_required(UserProfile.Role.DESK)

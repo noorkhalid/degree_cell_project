@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% load degree_extras %}
+{% block title %}Degree Application Receipt{% endblock %}
+{% block content %}
+<div class="public-receipt-page">
+  {% if error %}
+    <div class="alert alert-danger rounded-4 shadow-sm"><i class="bi bi-shield-exclamation me-2"></i>{{ error }}</div>
+    <a class="btn btn-primary" href="{% url 'degree:public_tracking' %}"><i class="bi bi-search me-1"></i>Search Again</a>
+  {% else %}
+    <div class="receipt-toolbar no-print">
+      <a class="btn btn-outline-primary" href="{% url 'degree:public_tracking' %}?cnic={{ app.cnic|cnic_format }}"><i class="bi bi-arrow-left me-1"></i>Back to Tracking</a>
+      <button class="btn btn-primary" onclick="window.print()"><i class="bi bi-download me-1"></i>Download / Print PDF</button>
+    </div>
+
+    <section class="receipt-sheet">
+      <header class="receipt-header">
+        <div class="receipt-logo"><i class="bi bi-mortarboard-fill"></i></div>
+        <div>
+          <h1>Degree Cell</h1>
+          <p>Student Degree Application Receipt</p>
+        </div>
+        <span class="track-status-badge track-status-{{ app.public_status_class }}"><i class="bi {{ app.public_status_icon }} me-1"></i>{{ app.public_display_status_label }}</span>
+      </header>
+
+      <div class="receipt-meta">
+        <div><span>Tracking No</span><strong>{{ app.tracking_no }}</strong></div>
+        <div><span>CNIC</span><strong>{{ app.cnic|cnic_format }}</strong></div>
+        <div><span>Receipt Date</span><strong>{% now "d M Y, h:i A" %}</strong></div>
+      </div>
+
+      <div class="track-progress-wrap receipt-progress">
+        <div class="track-progress-head">
+          <span>Application Progress</span>
+          <strong>{{ app.public_progress }}%</strong>
+        </div>
+        <div class="track-progress"><div class="track-progress-bar" style="width: {{ app.public_progress }}%;"></div></div>
+      </div>
+
+      <h2>Student Information</h2>
+      <div class="track-info-grid receipt-grid">
+        <div><span>Student Name</span><strong>{{ app.student_name }}</strong></div>
+        <div><span>Father Name</span><strong>{{ app.father_name }}</strong></div>
+        <div><span>Registration No</span><strong>{{ app.registration_no }}</strong></div>
+        <div><span>Roll No</span><strong>{{ app.roll_no|default:'-' }}</strong></div>
+        <div><span>Program</span><strong>{{ app.program }}</strong></div>
+        <div><span>Institute</span><strong>{{ app.institute }}</strong></div>
+        <div><span>Application Type</span><strong>{{ app.get_application_type_display }}</strong></div>
+        <div><span>Submitted On</span><strong>{{ app.created_at|date:'d M Y' }}</strong></div>
+      </div>
+
+
+      {% if app.public_missing_documents %}
+        <h2>Deficient / Required Documents</h2>
+        <div class="track-objection-box receipt-objection-box">
+          <p class="mb-2">This application is in Objection because the following documents are required:</p>
+          <ul>
+            {% for doc in app.public_missing_documents %}<li>{{ doc }}</li>{% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+
+      <h2>Tracking History</h2>
+      <div class="receipt-history">
+        {% for log in app.status_logs.all %}
+          <div class="receipt-history-row">
+            <span>{{ log.created_at|date:'d M Y, h:i A' }}</span>
+            <strong>{% if log.from_status %}{{ log.get_from_status_display }} → {% endif %}{{ log.get_to_status_display }}</strong>
+            {% if log.remarks %}<p>{{ log.remarks }}</p>{% endif %}
+          </div>
+        {% empty %}
+          <div class="track-no-history">No tracking history has been recorded yet.</div>
+        {% endfor %}
+      </div>
+
+      <footer class="receipt-footer">
+        This is a computer-generated receipt for tracking purpose only. Please contact Degree Cell for official verification if required.
+      </footer>
+    </section>
+  {% endif %}
+</div>
+{% endblock %}

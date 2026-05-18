@@ -5,6 +5,7 @@
   <div class="card shadow-sm"><div class="card-body">
     <h4 class="mb-3">Degree Cell Login</h4>
     <form method="post">{% csrf_token %}{{ form.as_p }}<button class="btn btn-dark w-100">Login</button></form>
+    <div class="text-center mt-3"><a class="fw-bold text-decoration-none" href="{% url 'degree:public_tracking' %}"><i class="bi bi-search me-1"></i>Track application without login</a></div>
   </div></div>
 </div></div>
 {% endblock %}

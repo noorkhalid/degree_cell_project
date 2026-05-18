@@ -14,15 +14,15 @@
 <body>
 {% if user.is_authenticated %}
 <header class="topbar no-print">
+  <button class="sidebar-toggle d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileSidebar" aria-controls="mobileSidebar" aria-label="Open menu">
+    <i class="bi bi-list"></i>
+  </button>
   <div class="topbar-brand">
     <a class="brand-link" href="{% url 'dashboard' %}">
       <span class="brand-mark"><i class="bi bi-mortarboard-fill"></i></span>
       <span>Degree Cell</span>
     </a>
   </div>
-  <button class="sidebar-toggle d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileSidebar" aria-controls="mobileSidebar" aria-label="Open menu">
-    <i class="bi bi-list"></i>
-  </button>
   <div class="topbar-actions ms-auto">
     <span class="user-pill"><i class="bi bi-person-circle me-1"></i>{{ user.username }}</span>
     <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="btn logout-btn btn-sm">Logout</button></form>
@@ -88,6 +88,23 @@ document.addEventListener('DOMContentLoaded', () => {
       input.value = formatMobileValue(input.value);
     });
     if (input.value) input.value = formatMobileValue(input.value);
+  });
+
+  const mobileSidebarEl = document.getElementById('mobileSidebar');
+  if (mobileSidebarEl && window.bootstrap) {
+    const mobileSidebar = bootstrap.Offcanvas.getOrCreateInstance(mobileSidebarEl);
+    mobileSidebarEl.querySelectorAll('a.side-link').forEach(link => {
+      link.addEventListener('click', () => mobileSidebar.hide());
+    });
+  }
+
+  document.querySelectorAll('table').forEach(table => {
+    if (!table.closest('.table-responsive, .vc-table-wrap, .processing-table-wrap, .mobile-table-wrap')) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'mobile-table-wrap';
+      table.parentNode.insertBefore(wrapper, table);
+      wrapper.appendChild(table);
+    }
   });
 
   // Important: document checklist does NOT lock the application entry form.

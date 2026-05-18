@@ -1,0 +1,185 @@
+{% extends 'base.html' %}
+{% load degree_extras %}
+{% block title %}Track Degree Application{% endblock %}
+{% block content %}
+<style>
+  .track-btn:not(.is-loading) .track-btn-loading { display: none !important; }
+  .track-btn.is-loading .track-btn-text { display: none !important; }
+  .track-btn.is-loading .track-btn-loading { display: inline-flex !important; align-items: center; }
+</style>
+<div class="public-track-page">
+  <section class="track-hero">
+    <div class="track-brand track-brand-polished">
+      <span class="track-brand-icon track-brand-logo"><i class="bi bi-mortarboard-fill"></i></span>
+      <div>
+        <div class="track-brand-title">Degree Cell</div>
+        <div class="track-brand-subtitle">Examinations Section, Gomal University D. I. Khan</div>
+        <div class="track-brand-subtitle">Student Application Tracking Portal</div>
+      </div>
+    </div>
+    <h1>Track Your Application</h1>
+    <p>Enter your CNIC number to view your complete application status history, processing stage, and printable receipt.</p>
+
+    <form method="get" class="track-search-card" id="publicTrackForm" novalidate>
+      <label for="cnic" class="form-label">CNIC Number</label>
+      <div class="track-search-row">
+        <div class="track-input-wrap">
+          <i class="bi bi-search"></i>
+          <input
+            type="text"
+            id="cnic"
+            name="cnic"
+            class="form-control cnic-input track-cnic-input"
+            value="{{ cnic }}"
+            placeholder="00000-0000000-0"
+            inputmode="numeric"
+            autocomplete="off"
+            required>
+        </div>
+        <button class="btn btn-primary track-btn" type="submit" id="trackSubmitBtn">
+          <span class="track-btn-text"><i class="bi bi-arrow-right-circle me-1"></i>Track Now</span>
+          <span class="track-btn-loading"><span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Searching...</span>
+        </button>
+      </div>
+      <div class="track-help">Example format: 35202-1234567-1. Your CNIC is used only to find matching degree applications.</div>
+    </form>
+  </section>
+
+  {% if error %}
+    <div class="alert alert-danger rounded-4 shadow-sm mt-4 no-print"><i class="bi bi-exclamation-triangle-fill me-2"></i>{{ error }}</div>
+  {% endif %}
+
+  {% if searched and not error and not applications %}
+    <div class="track-empty-card mt-4">
+      <i class="bi bi-file-earmark-x"></i>
+      <h3>No application found</h3>
+      <p>No degree application was found against this CNIC number. Please check the CNIC and try again.</p>
+    </div>
+  {% endif %}
+
+  {% if applications %}
+    <div class="track-results-header mt-4">
+      <div>
+        <h2>Tracking Result</h2>
+        <p>{{ applications|length }} application{% if applications|length > 1 %}s{% endif %} found against CNIC {{ cnic_digits|cnic_format }}.</p>
+      </div>
+      <div class="track-action-row no-print">
+        <a class="btn btn-outline-primary" href="{% url 'degree:public_tracking' %}"><i class="bi bi-arrow-repeat me-1"></i>New Search</a>
+      </div>
+    </div>
+
+    {% for app in applications %}
+      <article class="track-result-card">
+        <div class="track-card-top">
+          <div>
+            <div class="track-no">Tracking No: {{ app.tracking_no }}</div>
+            <h3>{{ app.student_name }}</h3>
+            <p>{{ app.program }} · {{ app.institute }}</p>
+          </div>
+          <div class="track-card-actions">
+            <span class="track-status-badge track-status-{{ app.public_status_class }}"><i class="bi {{ app.public_status_icon }} me-1"></i>{{ app.public_display_status_label }}</span>
+            <a class="btn btn-sm btn-primary no-print" href="{% url 'degree:public_receipt' app.tracking_no %}?cnic={{ cnic_digits }}" target="_blank" rel="noopener">
+              <i class="bi bi-download me-1"></i>Receipt / PDF
+            </a>
+          </div>
+        </div>
+
+        <div class="track-progress-wrap">
+          <div class="track-progress-head">
+            <span>Application Progress</span>
+            <strong>{{ app.public_progress }}%</strong>
+          </div>
+          <div class="track-progress" role="progressbar" aria-valuenow="{{ app.public_progress }}" aria-valuemin="0" aria-valuemax="100">
+            <div class="track-progress-bar" style="width: {{ app.public_progress }}%;"></div>
+          </div>
+          <div class="track-stage-row">
+            {% for step in app.public_steps %}
+              <div class="track-stage track-stage-{{ step.state }}">
+                <span><i class="bi {{ step.icon }}"></i></span>
+                <small>{{ step.label }}</small>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="track-info-grid">
+          <div><span>Father Name</span><strong>{{ app.father_name }}</strong></div>
+          <div><span>Registration No</span><strong>{{ app.registration_no }}</strong></div>
+          <div><span>Roll No</span><strong>{{ app.roll_no|default:'-' }}</strong></div>
+          <div><span>Application Type</span><strong>{{ app.get_application_type_display }}</strong></div>
+          <div><span>Submitted On</span><strong>{{ app.created_at|date:'d M Y' }}</strong></div>
+          <div><span>Last Updated</span><strong>{{ app.updated_at|date:'d M Y, h:i A' }}</strong></div>
+        </div>
+
+        {% if app.public_missing_documents %}
+          <div class="track-objection-box">
+            <strong><i class="bi bi-exclamation-circle me-1"></i>Deficient / Required Documents</strong>
+            <p class="mb-2">Your application is currently in Objection because the following documents are required:</p>
+            <ul>
+              {% for doc in app.public_missing_documents %}<li>{{ doc }}</li>{% endfor %}
+            </ul>
+          </div>
+        {% endif %}
+
+        <div class="track-timeline-wrap">
+          <h4>Complete Tracking History</h4>
+          <div class="track-timeline track-timeline-animated">
+            {% for log in app.status_logs.all %}
+              <div class="track-timeline-item" style="--delay: {{ forloop.counter0 }};">
+                <div class="track-timeline-dot"></div>
+                <div class="track-timeline-content">
+                  <div class="track-timeline-date">{{ log.created_at|date:'d M Y, h:i A' }}</div>
+                  <div class="track-timeline-title">
+                    {% if log.from_status %}{{ log.get_from_status_display }} <i class="bi bi-arrow-right-short"></i>{% endif %}
+                    {{ log.get_to_status_display }}
+                  </div>
+                  {% if log.remarks %}<div class="track-timeline-remarks">{{ log.remarks }}</div>{% endif %}
+                </div>
+              </div>
+            {% empty %}
+              <div class="track-no-history">No tracking history has been recorded yet.</div>
+            {% endfor %}
+          </div>
+        </div>
+      </article>
+    {% endfor %}
+  {% endif %}
+</div>
+
+<script>
+(function () {
+  function resetTrackButton() {
+    const button = document.getElementById('trackSubmitBtn');
+    if (!button) return;
+    button.classList.remove('is-loading');
+    button.disabled = false;
+  }
+
+  function initPublicTrackingForm() {
+    const form = document.getElementById('publicTrackForm');
+    const button = document.getElementById('trackSubmitBtn');
+    const cnic = document.getElementById('cnic');
+    if (!form || !button || !cnic) return;
+
+    resetTrackButton();
+
+    form.addEventListener('submit', function (event) {
+      const digits = (cnic.value || '').replace(/\D/g, '');
+      if (digits.length !== 13) {
+        resetTrackButton();
+        return;
+      }
+
+      button.classList.add('is-loading');
+      button.disabled = true;
+
+      // Safety reset for browser cache/back-forward restore or interrupted requests.
+      window.setTimeout(resetTrackButton, 8000);
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', initPublicTrackingForm);
+  window.addEventListener('pageshow', resetTrackButton);
+})();
+</script>
+{% endblock %}
