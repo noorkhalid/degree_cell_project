@@ -1,6 +1,11 @@
 #!/usr/bin/env python
 import os
 import sys
+try:
+    import MySQLdb
+except ImportError:
+    import pymysql
+    pymysql.install_as_MySQLdb()
 
 
 def main():
