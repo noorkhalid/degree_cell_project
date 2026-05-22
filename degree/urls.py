@@ -4,7 +4,8 @@ from . import views
 app_name = 'degree'
 
 urlpatterns = [
-    path('track/', views.public_tracking, name='public_tracking'),
+    path('', views.public_tracking, name='public_tracking'),
+    path('track/', views.public_tracking),
     path('track/<str:tracking_no>/receipt/', views.public_receipt, name='public_receipt'),
     path('applications/', views.application_list, name='list'),
     path('applications/processing/', views.application_processing, name='processing'),
