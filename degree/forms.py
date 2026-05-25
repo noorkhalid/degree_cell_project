@@ -28,6 +28,25 @@ def normalize_mobile(value):
     return ''.join(ch for ch in str(value or '') if ch.isdigit())
 
 
+class DepartmentSelect(forms.Select):
+    """Department select that marks each option with its campus id for frontend filtering."""
+    def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
+        option = super().create_option(name, value, label, selected, index, subindex=subindex, attrs=attrs)
+        if value:
+            campus_id = None
+            instance = getattr(value, 'instance', None)
+            if instance is not None:
+                campus_id = getattr(instance, 'campus_id', None)
+            if campus_id is None:
+                try:
+                    campus_id = Department.objects.only('campus_id').get(pk=value).campus_id
+                except Exception:
+                    campus_id = None
+            if campus_id is not None:
+                option['attrs']['data-campus'] = str(campus_id)
+        return option
+
+
 class ChecklistGateForm(forms.Form):
     form_completely_filled = forms.BooleanField(required=False, label='Application Form')
     form_signed = forms.BooleanField(required=False, label='Application Form Signed')
@@ -85,8 +104,10 @@ class DegreeApplicationForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields['campus'].queryset = Campus.objects.filter(is_active=True)
         self.fields['campus'].empty_label = 'Select Campus'
-        self.fields['department'].queryset = Department.objects.filter(is_active=True)
+        self.fields['department'].queryset = Department.objects.filter(is_active=True).select_related('campus')
         self.fields['department'].empty_label = 'Select Department'
+        self.fields['department'].label_from_instance = lambda obj: obj.name
+        self.fields['department'].widget = DepartmentSelect(choices=self.fields['department'].choices)
         self.fields['program'].queryset = Program.objects.filter(is_active=True)
         self.fields['program'].empty_label = 'Select Program'
         self.fields['bank'].empty_label = 'Select Bank'
@@ -229,8 +250,10 @@ class AdminApplicationEditForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields['campus'].queryset = Campus.objects.filter(is_active=True)
         self.fields['campus'].empty_label = 'Select Campus'
-        self.fields['department'].queryset = Department.objects.filter(is_active=True)
+        self.fields['department'].queryset = Department.objects.filter(is_active=True).select_related('campus')
         self.fields['department'].empty_label = 'Select Department'
+        self.fields['department'].label_from_instance = lambda obj: obj.name
+        self.fields['department'].widget = DepartmentSelect(choices=self.fields['department'].choices)
         self.fields['program'].queryset = Program.objects.filter(is_active=True)
         self.fields['program'].empty_label = 'Select Program'
         self.fields['bank'].empty_label = 'Select Bank'

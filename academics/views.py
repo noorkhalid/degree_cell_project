@@ -170,11 +170,19 @@ def department_delete(request, pk):
 
 @login_required
 def departments_by_campus(request):
-    campus_id = request.GET.get('campus')
-    qs = Department.objects.filter(is_active=True)
-    if campus_id:
-        qs = qs.filter(campus_id=campus_id)
-    data = [{'id': d.pk, 'text': d.name} for d in qs.order_by('name')]
+    campus_id = str(request.GET.get('campus') or '').strip()
+    term = str(request.GET.get('q') or '').strip()
+
+    qs = Department.objects.filter(is_active=True).select_related('campus')
+    if campus_id.isdigit():
+        qs = qs.filter(campus_id=int(campus_id))
+    else:
+        qs = qs.none()
+
+    if term:
+        qs = qs.filter(name__icontains=term)
+
+    data = [{'id': d.pk, 'text': d.name} for d in qs.order_by('name')[:100]]
     return JsonResponse({'results': data})
 
 
