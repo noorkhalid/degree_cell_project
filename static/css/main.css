@@ -2772,7 +2772,7 @@ textarea {
 }
 
 .select2-container--default .select2-selection--single .select2-selection__rendered {
-  min-height: 46px;
+  height: 46px;
   line-height: 46px;
   padding-left: .78rem;
   padding-right: 2.4rem;

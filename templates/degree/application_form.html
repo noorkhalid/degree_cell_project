@@ -95,6 +95,50 @@
 </form>
 
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+  /* Keep Select2 fields visually identical to the normal Bootstrap form fields */
+  .pro-field-grid .select2-container { width: 100% !important; }
+  .pro-field-grid .select2-container--default .select2-selection--single {
+    height: 50px !important;
+    min-height: 50px !important;
+    border: 1px solid #b7c7da !important;
+    border-radius: 14px !important;
+    background-color: #fff !important;
+    box-shadow: none !important;
+    position: relative !important;
+  }
+  .pro-field-grid .select2-container--default .select2-selection--single .select2-selection__rendered {
+    height: 48px !important;
+    line-height: 48px !important;
+    padding-left: .95rem !important;
+    padding-right: 2.75rem !important;
+    color: #10203f !important;
+    font-size: .95rem !important;
+    font-weight: 700 !important;
+  }
+  .pro-field-grid .select2-container--default .select2-selection--single .select2-selection__placeholder {
+    color: #64748b !important;
+    font-weight: 700 !important;
+  }
+  .pro-field-grid .select2-container--default .select2-selection--single .select2-selection__arrow {
+    height: 48px !important;
+    right: .85rem !important;
+    top: 0 !important;
+  }
+  .pro-field-grid .select2-container--default .select2-selection--single .select2-selection__clear {
+    height: 48px !important;
+    line-height: 48px !important;
+    margin-right: 2.15rem !important;
+    padding: 0 !important;
+    top: 0 !important;
+  }
+  .pro-field-grid .select2-container--default.select2-container--focus .select2-selection--single,
+  .pro-field-grid .select2-container--default.select2-container--open .select2-selection--single {
+    border-color: #2563eb !important;
+    box-shadow: 0 0 0 .22rem rgba(37, 99, 235, .13) !important;
+  }
+</style>
+
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
