@@ -5,7 +5,7 @@ from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.db.models import Max, Sum
 from django.utils import timezone
-from academics.models import Bank, Institute, Program
+from academics.models import Bank, Campus, Department, Program
 
 
 class ApplicationType(models.TextChoices):
@@ -179,8 +179,9 @@ class DegreeApplication(models.Model):
 
     registration_no = models.CharField(max_length=100, db_index=True)
     roll_no = models.CharField(max_length=100, blank=True)
+    campus = models.ForeignKey(Campus, null=True, blank=True, on_delete=models.PROTECT)
+    department = models.ForeignKey(Department, null=True, blank=True, on_delete=models.PROTECT)
     program = models.ForeignKey(Program, on_delete=models.PROTECT)
-    institute = models.ForeignKey(Institute, on_delete=models.PROTECT)
     session_year = models.CharField(max_length=50, blank=True)
     exam_passing_year = models.CharField(max_length=20, blank=True)
     declared_result_date = models.DateField(default=timezone.localdate)

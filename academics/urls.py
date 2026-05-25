@@ -4,12 +4,20 @@ from . import views
 app_name = 'academics'
 
 urlpatterns = [
-    path('institutes/', views.institute_list, name='institutes'),
-    path('institutes/new/', views.institute_create, name='institute_create'),
-    path('institutes/<int:pk>/edit/', views.institute_edit, name='institute_edit'),
-    path('institutes/<int:pk>/delete/', views.institute_delete, name='institute_delete'),
-    path('institutes/template/', views.institute_template_download, name='institute_template_download'),
-    path('institutes/upload/', views.institute_upload_excel, name='institute_upload_excel'),
+    path('campuses/', views.campus_list, name='campuses'),
+    path('campuses/new/', views.campus_create, name='campus_create'),
+    path('campuses/<int:pk>/edit/', views.campus_edit, name='campus_edit'),
+    path('campuses/<int:pk>/delete/', views.campus_delete, name='campus_delete'),
+    path('campuses/template/', views.campus_template_download, name='campus_template_download'),
+    path('campuses/upload/', views.campus_upload_excel, name='campus_upload_excel'),
+
+    path('departments/', views.department_list, name='departments'),
+    path('departments/new/', views.department_create, name='department_create'),
+    path('departments/<int:pk>/edit/', views.department_edit, name='department_edit'),
+    path('departments/<int:pk>/delete/', views.department_delete, name='department_delete'),
+    path('departments/template/', views.department_template_download, name='department_template_download'),
+    path('departments/upload/', views.department_upload_excel, name='department_upload_excel'),
+    path('departments/by-campus/', views.departments_by_campus, name='departments_by_campus'),
 
     path('programs/', views.program_list, name='programs'),
     path('programs/new/', views.program_create, name='program_create'),

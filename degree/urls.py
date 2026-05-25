@@ -9,6 +9,7 @@ urlpatterns = [
     path('track/<str:tracking_no>/receipt/', views.public_receipt, name='public_receipt'),
     path('applications/', views.application_list, name='list'),
     path('applications/processing/', views.application_processing, name='processing'),
+    path('applications/handover-slip/', views.handover_slip, name='handover_slip'),
     path('fees/', views.fee_structure_list, name='fee_structures'),
     path('fees/new/', views.fee_structure_create, name='fee_structure_create'),
     path('fees/<int:pk>/edit/', views.fee_structure_edit, name='fee_structure_edit'),

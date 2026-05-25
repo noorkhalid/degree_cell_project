@@ -3,7 +3,7 @@ from django import forms
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 from django.forms import inlineformset_factory
-from academics.models import Bank, Institute, Program, CourierCompany
+from academics.models import Bank, Campus, Department, Program, CourierCompany
 from .models import (
     ApplicationChecklist,
     ApplicationPayment,
@@ -65,7 +65,7 @@ class DegreeApplicationForm(forms.ModelForm):
         model = DegreeApplication
         fields = [
             'student_name', 'father_name', 'cnic', 'mobile', 'email', 'registration_no', 'roll_no',
-            'postal_address', 'program', 'institute', 'application_type', 'received_mode',
+            'postal_address', 'campus', 'department', 'program', 'application_type', 'received_mode',
         ]
         widgets = {
             'postal_address': forms.Textarea(attrs={'rows': 2}),
@@ -83,14 +83,22 @@ class DegreeApplicationForm(forms.ModelForm):
         self.user = kwargs.pop('user', None)
         self.checklist_data = kwargs.pop('checklist_data', None) or {}
         super().__init__(*args, **kwargs)
+        self.fields['campus'].queryset = Campus.objects.filter(is_active=True)
+        self.fields['campus'].empty_label = 'Select Campus'
+        self.fields['department'].queryset = Department.objects.filter(is_active=True)
+        self.fields['department'].empty_label = 'Select Department'
         self.fields['program'].queryset = Program.objects.filter(is_active=True)
         self.fields['program'].empty_label = 'Select Program'
-        self.fields['institute'].queryset = Institute.objects.filter(is_active=True)
-        self.fields['institute'].empty_label = 'Select Institute'
         self.fields['bank'].empty_label = 'Select Bank'
         self.fields['timing'].choices = [('', 'Select Timing')] + list(FeeTiming.choices)
         self.fields['application_type'].choices = [('', 'Select Application Type')] + list(ApplicationType.choices)
         self.fields['received_mode'].choices = [('', 'Select Received Mode')] + list(ReceivingMode.choices)
+
+        for searchable_name in ['campus', 'department', 'program']:
+            if searchable_name in self.fields:
+                css = self.fields[searchable_name].widget.attrs.get('class', '')
+                self.fields[searchable_name].widget.attrs['class'] = (css + ' form-select searchable-select').strip()
+                self.fields[searchable_name].widget.attrs['data-placeholder'] = self.fields[searchable_name].empty_label
         self.fields['challan_amount'].widget.attrs.update({'readonly': 'readonly', 'class': 'calculated-fee-input'})
         self.fields['email'].required = False
         self.fields['email'].widget.attrs.update({'placeholder': ''})
@@ -101,7 +109,7 @@ class DegreeApplicationForm(forms.ModelForm):
         # Keep field order exactly as requested.
         requested_order = [
             'student_name', 'father_name', 'cnic', 'mobile', 'email', 'registration_no', 'roll_no',
-            'postal_address', 'program', 'institute', 'timing', 'application_type',
+            'postal_address', 'campus', 'department', 'program', 'timing', 'application_type',
             'bank', 'challan_no', 'challan_date', 'challan_amount', 'received_mode',
         ]
         self.order_fields(requested_order)
@@ -120,6 +128,10 @@ class DegreeApplicationForm(forms.ModelForm):
 
     def clean(self):
         cleaned = super().clean()
+        campus = cleaned.get('campus')
+        department = cleaned.get('department')
+        if campus and department and department.campus_id != campus.id:
+            self.add_error('department', 'Select a department that belongs to the selected campus.')
         program = cleaned.get('program')
         timing = cleaned.get('timing')
         application_type = cleaned.get('application_type')
@@ -197,7 +209,7 @@ class AdminApplicationEditForm(forms.ModelForm):
         model = DegreeApplication
         fields = [
             'student_name', 'father_name', 'cnic', 'mobile', 'email', 'registration_no', 'roll_no',
-            'postal_address', 'program', 'institute', 'fee_timing_at_entry',
+            'postal_address', 'campus', 'department', 'program', 'fee_timing_at_entry',
             'application_type', 'received_mode', 'status',
         ]
         widgets = {
@@ -215,14 +227,22 @@ class AdminApplicationEditForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['campus'].queryset = Campus.objects.filter(is_active=True)
+        self.fields['campus'].empty_label = 'Select Campus'
+        self.fields['department'].queryset = Department.objects.filter(is_active=True)
+        self.fields['department'].empty_label = 'Select Department'
         self.fields['program'].queryset = Program.objects.filter(is_active=True)
         self.fields['program'].empty_label = 'Select Program'
-        self.fields['institute'].queryset = Institute.objects.filter(is_active=True)
-        self.fields['institute'].empty_label = 'Select Institute'
         self.fields['bank'].empty_label = 'Select Bank'
         self.fields['fee_timing_at_entry'].choices = [('', 'Select Timing')] + list(FeeTiming.choices)
         self.fields['application_type'].choices = [('', 'Select Application Type')] + list(ApplicationType.choices)
         self.fields['received_mode'].choices = [('', 'Select Received Mode')] + list(ReceivingMode.choices)
+
+        for searchable_name in ['campus', 'department', 'program']:
+            if searchable_name in self.fields:
+                css = self.fields[searchable_name].widget.attrs.get('class', '')
+                self.fields[searchable_name].widget.attrs['class'] = (css + ' form-select searchable-select').strip()
+                self.fields[searchable_name].widget.attrs['data-placeholder'] = self.fields[searchable_name].empty_label
         self.fields['status'].choices = list(ACTIVE_APPLICATION_STATUS_CHOICES)
         self.fields['challan_amount'].widget.attrs.update({'readonly': 'readonly', 'class': 'calculated-fee-input'})
         self.fields['email'].required = False
@@ -241,7 +261,7 @@ class AdminApplicationEditForm(forms.ModelForm):
             self.fields['challan_amount'].initial = self.instance.required_fee_at_entry
         self.order_fields([
             'student_name', 'father_name', 'cnic', 'mobile', 'email', 'registration_no', 'roll_no',
-            'postal_address', 'program', 'institute', 'fee_timing_at_entry',
+            'postal_address', 'campus', 'department', 'program', 'fee_timing_at_entry',
             'application_type', 'bank', 'challan_no', 'challan_date',
             'challan_amount', 'received_mode', 'status',
         ])
@@ -260,6 +280,10 @@ class AdminApplicationEditForm(forms.ModelForm):
 
     def clean(self):
         cleaned = super().clean()
+        campus = cleaned.get('campus')
+        department = cleaned.get('department')
+        if campus and department and department.campus_id != campus.id:
+            self.add_error('department', 'Select a department that belongs to the selected campus.')
         program = cleaned.get('program')
         timing = cleaned.get('fee_timing_at_entry')
         application_type = cleaned.get('application_type')

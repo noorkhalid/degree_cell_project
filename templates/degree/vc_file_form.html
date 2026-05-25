@@ -60,7 +60,7 @@
               </thead>
               <tbody id="vc-app-table-body">
                 {% for app in available_apps %}
-                  <tr class="vc-app-row" data-search="{{ app.tracking_no }} {{ app.student_name }} {{ app.registration_no }} {{ app.cnic }} {{ app.program.name }} {{ app.institute.name }}">
+                  <tr class="vc-app-row" data-search="{{ app.tracking_no }} {{ app.student_name }} {{ app.registration_no }} {{ app.cnic }} {{ app.program.name }} {{ app.department.name }}">
                     <td class="select-col">
                       <input class="vc-app-check" type="checkbox" name="applications" value="{{ app.pk }}" id="app_{{ app.pk }}" {% if app.pk|stringformat:'s' in selected_app_ids %}checked{% endif %}>
                     </td>
@@ -74,7 +74,7 @@
                     </td>
                     <td>
                       <div>{{ app.program.name }}</div>
-                      <div class="vc-muted small">{{ app.institute.name }}</div>
+                      <div class="vc-muted small">{{ app.department.name }}</div>
                     </td>
                     <td><code class="vc-code">{{ app.cnic|cnic_format }}</code></td>
                     <td><span class="status-badge status-printed">{{ app.get_status_display }}</span></td>

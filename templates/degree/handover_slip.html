@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+{% load degree_extras %}
+{% block title %}Handover Slip | Degree Cell{% endblock %}
+{% block content %}
+<div class="processing-page">
+  <section class="dashboard-hero compact-hero">
+    <div>
+      <p class="eyebrow mb-1">Degree Cell Operations</p>
+      <h1 class="page-title">Print Handover Slip</h1>
+      <p class="page-subtitle mb-0">Select In Process applications and print one manual handover sheet for Verifier and Printing Officer signatures. This does not change application status.</p>
+    </div>
+  </section>
+
+  <section class="content-panel process-main-panel">
+    <div class="panel-header compact">
+      <div>
+        <h2>Eligible Applications</h2>
+        <p>Only applications that are not in Objection and not yet Printed are shown here.</p>
+      </div>
+    </div>
+    <div class="panel-body">
+      <form method="get" class="process-filter-form">
+        <div class="filter-field wide">
+          <label>Search</label>
+          <input type="text" name="q" value="{{ q }}" placeholder="Tracking, CNIC, registration, roll no, name, father name, program">
+        </div>
+        <div class="filter-actions">
+          <button class="btn btn-primary" type="submit"><i class="bi bi-search me-1"></i>Search</button>
+          <a class="btn btn-light action-outline" href="{% url 'degree:handover_slip' %}">Reset</a>
+        </div>
+      </form>
+
+      <form method="post" id="handoverSlipForm" target="_blank">
+        {% csrf_token %}
+        <div class="bulk-update-card">
+          <div class="bulk-title">
+            <i class="bi bi-file-earmark-text"></i>
+            <div>
+              <strong>Manual Handover Sheet</strong>
+              <span>Select applications, then print the sheet. Verifier and Printing Officer will sign manually on the same page.</span>
+            </div>
+          </div>
+          <div class="bulk-submit">
+            <button class="btn btn-primary" type="submit"><i class="bi bi-printer me-1"></i>Print Handover Slip</button>
+          </div>
+        </div>
+
+        <div class="table-responsive processing-table-wrap">
+          <table class="dashboard-table processing-table mb-0">
+            <thead>
+              <tr>
+                <th style="width:42px"><input type="checkbox" id="selectAllApplications"></th>
+                <th>Tracking</th>
+                <th>Name</th>
+                <th>Father Name</th>
+                <th>Registration No</th>
+                <th>Program</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for app in applications %}
+              <tr>
+                <td><input class="application-check" type="checkbox" name="application_ids" value="{{ app.pk }}"></td>
+                <td><span class="tracking-no">{{ app.tracking_no }}</span></td>
+                <td><strong>{{ app.student_name }}</strong><br><small>{{ app.cnic|cnic_format }}</small></td>
+                <td>{{ app.father_name }}</td>
+                <td>{{ app.registration_no }}</td>
+                <td>{{ app.program.name }}</td>
+                <td><span class="status-badge status-{{ app.status|lower }}">{{ app.get_status_display }}</span></td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="7">
+                  <div class="empty-state compact-empty">
+                    <div class="empty-icon"><i class="bi bi-inbox"></i></div>
+                    <h3>No eligible applications found</h3>
+                    <p>Applications in Objection or already Printed are not shown here.</p>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </form>
+    </div>
+  </section>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const selectAll = document.getElementById('selectAllApplications');
+  if (selectAll) {
+    selectAll.addEventListener('change', function () {
+      document.querySelectorAll('.application-check').forEach(cb => cb.checked = selectAll.checked);
+    });
+  }
+  const form = document.getElementById('handoverSlipForm');
+  if (form) {
+    form.addEventListener('submit', function (event) {
+      const checked = document.querySelectorAll('.application-check:checked').length;
+      if (!checked) {
+        event.preventDefault();
+        alert('Please select at least one application.');
+      }
+    });
+  }
+});
+</script>
+{% endblock %}

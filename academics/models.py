@@ -1,21 +1,29 @@
 from django.db import models
 
 
-class Institute(models.Model):
-    class Category(models.TextChoices):
-        UNIVERSITY = 'UNIVERSITY', 'University Teaching Department'
-        GOVT = 'GOVT', 'Government Affiliated College'
-        PRIVATE = 'PRIVATE', 'Private Affiliated College'
-
+class Campus(models.Model):
     name = models.CharField(max_length=255, unique=True)
-    category = models.CharField(max_length=20, choices=Category.choices)
     is_active = models.BooleanField(default=True)
 
     class Meta:
         ordering = ['name']
+        verbose_name_plural = 'Campuses'
 
     def __str__(self):
         return self.name
+
+
+class Department(models.Model):
+    campus = models.ForeignKey(Campus, on_delete=models.PROTECT, related_name='departments')
+    name = models.CharField(max_length=255)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['campus__name', 'name']
+        unique_together = ('campus', 'name')
+
+    def __str__(self):
+        return f'{self.name} ({self.campus.name})'
 
 
 class Program(models.Model):

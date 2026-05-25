@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3 class="mb-0">Campuses</h3>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-primary" href="{% url 'academics:campus_template_download' %}"><i class="bi bi-download me-1"></i>Template</a>
+    <a class="btn btn-dark" href="{% url 'academics:campus_create' %}"><i class="bi bi-plus-lg me-1"></i>Add Campus</a>
+  </div>
+</div>
+<div class="card border-0 shadow-sm rounded-4 mb-4"><div class="card-body">
+  <h6 class="fw-bold mb-2">Upload campuses from Excel</h6>
+  <p class="text-muted small mb-3">First download the template, fill the campuses, then upload the completed Excel file.</p>
+  <form method="post" action="{% url 'academics:campus_upload_excel' %}" enctype="multipart/form-data" class="row g-2 align-items-end">{% csrf_token %}
+    <div class="col-md-8"><input type="file" name="excel_file" accept=".xlsx,.xlsm" class="form-control" required></div>
+    <div class="col-md-4"><button class="btn btn-outline-dark w-100"><i class="bi bi-upload me-1"></i>Upload Excel</button></div>
+  </form>
+</div></div>
+<div class="card border-0 shadow-sm rounded-4"><div class="table-responsive"><table class="table align-middle mb-0">
+  <thead><tr><th>Name</th><th>Active</th><th class="text-end">Actions</th></tr></thead><tbody>
+  {% for item in items %}<tr><td>{{ item.name }}</td><td>{% if item.is_active %}<span class="badge text-bg-success">Yes</span>{% else %}<span class="badge text-bg-secondary">No</span>{% endif %}</td><td class="text-end"><a class="btn btn-sm btn-outline-primary rounded-pill" href="{% url 'academics:campus_edit' item.pk %}">Edit</a> <a class="btn btn-sm btn-outline-danger rounded-pill" href="{% url 'academics:campus_delete' item.pk %}">Delete</a></td></tr>
+  {% empty %}<tr><td colspan="3" class="text-center text-muted py-4">No campuses found.</td></tr>{% endfor %}
+  </tbody></table></div></div>
+{% endblock %}

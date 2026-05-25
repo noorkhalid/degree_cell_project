@@ -31,8 +31,9 @@
       <tr><th>Email</th><td>{{ app.email|default:'-' }}</td></tr>
       <tr><th>Registration</th><td>{{ app.registration_no }}</td></tr>
       <tr><th>Roll No</th><td>{{ app.roll_no|default:'-' }}</td></tr>
+      <tr><th>Campus</th><td>{{ app.campus }}</td></tr>
+      <tr><th>Department</th><td>{{ app.department }}</td></tr>
       <tr><th>Program</th><td>{{ app.program }}</td></tr>
-      <tr><th>Institute</th><td>{{ app.institute }}</td></tr>
       <tr><th>Application Type</th><td>{{ app.get_application_type_display }}</td></tr>
       <tr><th>Timing</th><td>{{ app.get_fee_timing_at_entry_display }}</td></tr>
       <tr><th>Bank Challan Fee</th><td>Rs. {{ app.required_fee_at_entry }} / Paid Rs. {{ app.total_paid }}</td></tr>

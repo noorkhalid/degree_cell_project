@@ -1,12 +1,12 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-  <h3 class="mb-0">Institutes</h3>
+  <h3 class="mb-0">Departments</h3>
   <div class="d-flex flex-wrap gap-2">
-    <a class="btn btn-outline-primary" href="{% url 'academics:institute_template_download' %}">
+    <a class="btn btn-outline-primary" href="{% url 'academics:department_template_download' %}">
       <i class="bi bi-download me-1"></i> Download Excel Template
     </a>
-    <a class="btn btn-dark" href="{% url 'academics:institute_create' %}">
+    <a class="btn btn-dark" href="{% url 'academics:department_create' %}">
       <i class="bi bi-plus-lg me-1"></i> Add
     </a>
   </div>
@@ -14,12 +14,12 @@
 
 <div class="card border-0 shadow-sm rounded-4 mb-3">
   <div class="card-body">
-    <h6 class="fw-bold mb-2">Upload institutes from Excel</h6>
+    <h6 class="fw-bold mb-2">Upload departments from Excel</h6>
     <p class="text-muted small mb-3">
-      First download the template, fill the institutes, then upload the completed Excel file.
-      Existing institute names will be updated automatically.
+      First download the template, fill the departments, then upload the completed Excel file.
+      Existing department names will be updated automatically.
     </p>
-    <form method="post" action="{% url 'academics:institute_upload_excel' %}" enctype="multipart/form-data" class="row g-2 align-items-end">
+    <form method="post" action="{% url 'academics:department_upload_excel' %}" enctype="multipart/form-data" class="row g-2 align-items-end">
       {% csrf_token %}
       <div class="col-md-8 col-lg-6">
         <label class="form-label fw-semibold">Excel file</label>
@@ -50,13 +50,13 @@
         <td>{{ item.get_category_display }}</td>
         <td>{% if item.is_active %}True{% else %}False{% endif %}</td>
         <td class="text-end">
-          <a class="btn btn-sm btn-outline-primary rounded-pill" href="{% url 'academics:institute_edit' item.pk %}">Edit</a>
-          <a class="btn btn-sm btn-outline-danger rounded-pill" href="{% url 'academics:institute_delete' item.pk %}">Delete</a>
+          <a class="btn btn-sm btn-outline-primary rounded-pill" href="{% url 'academics:department_edit' item.pk %}">Edit</a>
+          <a class="btn btn-sm btn-outline-danger rounded-pill" href="{% url 'academics:department_delete' item.pk %}">Delete</a>
         </td>
       </tr>
     {% empty %}
       <tr>
-        <td colspan="4" class="text-center text-muted py-4">No institutes found.</td>
+        <td colspan="4" class="text-center text-muted py-4">No departments found.</td>
       </tr>
     {% endfor %}
   </tbody>

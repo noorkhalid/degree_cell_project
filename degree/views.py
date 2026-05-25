@@ -97,7 +97,7 @@ def dashboard(request):
         'ready_for_collection': status_counts.get(ApplicationStatus.READY_FOR_COLLECTION, 0),
     }
 
-    recent = DegreeApplication.objects.select_related('program', 'institute').order_by('-created_at')[:10]
+    recent = DegreeApplication.objects.select_related('campus', 'department', 'program').order_by('-created_at')[:10]
     return render(request, 'degree/dashboard.html', {
         'status_counts': status_counts,
         'dashboard_counts': dashboard_counts,
@@ -270,7 +270,7 @@ def public_tracking(request):
             cnic_formatted = format_cnic_for_display(cnic_digits)
             applications = list(
                 DegreeApplication.objects
-                .select_related('program', 'institute', 'checklist')
+                .select_related('campus', 'department', 'program', 'checklist')
                 .prefetch_related('status_logs')
                 .annotate(
                     cnic_no_dash=Replace(Replace('cnic', Value('-'), Value('')), Value(' '), Value(''))
@@ -294,7 +294,7 @@ def public_receipt(request, tracking_no):
     ensure_compatible_schema()
     cnic_digits = ''.join(ch for ch in (request.GET.get('cnic') or '').strip() if ch.isdigit())
     app = get_object_or_404(
-        DegreeApplication.objects.select_related('program', 'institute', 'checklist').prefetch_related('status_logs'),
+        DegreeApplication.objects.select_related('campus', 'department', 'program', 'checklist').prefetch_related('status_logs'),
         tracking_no=tracking_no
     )
     app_cnic = ''.join(ch for ch in str(app.cnic or '') if ch.isdigit())
@@ -390,6 +390,53 @@ def fee_structure_edit(request, pk):
     return render(request, 'degree/fee_structure_form.html', {'form': form, 'title': 'Edit Fee Structure'})
 
 
+
+
+@role_required(UserProfile.Role.DESK)
+def handover_slip(request):
+    """Prepare a manual printable handover slip for applications.
+
+    This feature does not change any status. It only lets the Desk Officer
+    select In Process applications, print the sheet, and collect manual
+    signatures from the Verifier and Printing Officer on the same sheet.
+    """
+    q = request.GET.get('q', '').strip()
+    eligible = DegreeApplication.objects.select_related('campus', 'department', 'program').filter(
+        status=ApplicationStatus.PENDING_VERIFICATION
+    )
+    if q:
+        eligible = eligible.filter(
+            Q(tracking_no__icontains=q) | Q(student_name__icontains=q) | Q(father_name__icontains=q) |
+            Q(cnic__icontains=q) | Q(registration_no__icontains=q) | Q(roll_no__icontains=q) |
+            Q(program__name__icontains=q)
+        )
+
+    selected_apps = []
+    if request.method == 'POST':
+        selected_ids = request.POST.getlist('application_ids')
+        if not selected_ids:
+            messages.error(request, 'Select at least one application to print the handover slip.')
+            return redirect('degree:handover_slip')
+        selected_apps = list(
+            DegreeApplication.objects.select_related('campus', 'department', 'program')
+            .filter(pk__in=selected_ids, status=ApplicationStatus.PENDING_VERIFICATION)
+            .order_by('student_name', 'registration_no')
+        )
+        if not selected_apps:
+            messages.error(request, 'Selected applications are not eligible. Only In Process applications can be printed on the handover slip.')
+            return redirect('degree:handover_slip')
+        return render(request, 'degree/handover_slip_print.html', {
+            'applications': selected_apps,
+            'printed_at': timezone.now(),
+            'prepared_by': request.user,
+        })
+
+    return render(request, 'degree/handover_slip.html', {
+        'applications': eligible.order_by('-updated_at')[:300],
+        'q': q,
+    })
+
+
 @role_required(UserProfile.Role.DESK)
 def application_processing(request):
     """Card-based processing desk with only logical next-step movements."""
@@ -411,7 +458,7 @@ def application_processing(request):
             'count': DegreeApplication.objects.filter(status=status).count(),
         })
 
-    qs = DegreeApplication.objects.select_related('program', 'institute').filter(status=status_filter)
+    qs = DegreeApplication.objects.select_related('campus', 'department', 'program').filter(status=status_filter)
     if q:
         qs = qs.filter(
             Q(tracking_no__icontains=q) | Q(student_name__icontains=q) | Q(father_name__icontains=q) |
@@ -435,7 +482,7 @@ def application_processing(request):
             messages.error(request, 'Select at least one application.')
             return redirect(f'{request.path}?status={status_filter}&q={q}')
 
-        apps = list(DegreeApplication.objects.select_related('program', 'institute').filter(pk__in=selected_ids, status=status_filter).distinct())
+        apps = list(DegreeApplication.objects.select_related('campus', 'department', 'program').filter(pk__in=selected_ids, status=status_filter).distinct())
         if not apps:
             messages.error(request, 'No matching applications found for this status.')
             return redirect(f'{request.path}?status={status_filter}&q={q}')
@@ -509,7 +556,7 @@ def application_processing(request):
 @login_required
 def application_list(request):
     ensure_compatible_schema()
-    qs = DegreeApplication.objects.select_related('program', 'institute').all()
+    qs = DegreeApplication.objects.select_related('campus', 'department', 'program').all()
     q = request.GET.get('q', '').strip()
     status = request.GET.get('status', '')
     app_type = request.GET.get('application_type', '')
@@ -528,14 +575,14 @@ def application_list(request):
 @login_required
 def application_detail(request, pk):
     ensure_compatible_schema()
-    app = get_object_or_404(DegreeApplication.objects.select_related('program', 'institute'), pk=pk)
+    app = get_object_or_404(DegreeApplication.objects.select_related('campus', 'department', 'program'), pk=pk)
     logs = app.status_logs.select_related('changed_by')[:20]
     return render(request, 'degree/application_detail.html', {'app': app, 'logs': logs, 'can_admin_manage': is_admin(request.user)})
 
 
 @role_required(UserProfile.Role.ADMIN)
 def application_edit(request, pk):
-    app = get_object_or_404(DegreeApplication.objects.select_related('program', 'institute'), pk=pk)
+    app = get_object_or_404(DegreeApplication.objects.select_related('campus', 'department', 'program'), pk=pk)
     old_status = app.status
     form = AdminApplicationEditForm(request.POST or None, instance=app)
     if request.method == 'POST' and form.is_valid():
@@ -634,7 +681,7 @@ def mark_printed(request, pk):
 
 @role_required(UserProfile.Role.PRINTING)
 def bulk_mark_printed(request):
-    pending_apps = DegreeApplication.objects.select_related('program', 'institute').filter(
+    pending_apps = DegreeApplication.objects.select_related('campus', 'department', 'program').filter(
         status=ApplicationStatus.PENDING_VERIFICATION
     ).order_by('tracking_no')
 
@@ -687,7 +734,7 @@ def get_available_vc_applications():
     return DegreeApplication.objects.filter(
         status=ApplicationStatus.PRINTED_PENDING_SIGNATURE,
         vc_file_item__isnull=True,
-    ).select_related('program', 'institute').order_by('tracking_no')
+    ).select_related('campus', 'department', 'program').order_by('tracking_no')
 
 
 @role_required(UserProfile.Role.DESK)
@@ -747,7 +794,7 @@ def vc_file_create(request):
 def vc_file_detail(request, pk):
     vc_file = get_object_or_404(
         VCFile.objects.select_related('created_by').prefetch_related(
-            'items__application__program', 'items__application__institute'
+            'items__application__campus', 'items__application__department', 'items__application__program'
         ),
         pk=pk,
     )
@@ -757,15 +804,15 @@ def vc_file_detail(request, pk):
 @role_required(UserProfile.Role.DESK)
 def vc_file_edit(request, pk):
     vc_file = get_object_or_404(
-        VCFile.objects.prefetch_related('items__application__program', 'items__application__institute'),
+        VCFile.objects.prefetch_related('items__application__campus', 'items__application__department', 'items__application__program'),
         pk=pk,
         status=VCFile.Status.DRAFT,
     )
-    current_apps = DegreeApplication.objects.filter(vc_file_item__vc_file=vc_file).select_related('program', 'institute')
+    current_apps = DegreeApplication.objects.filter(vc_file_item__vc_file=vc_file).select_related('campus', 'department', 'program')
     available_apps = DegreeApplication.objects.filter(
         Q(vc_file_item__isnull=True, status=ApplicationStatus.PRINTED_PENDING_SIGNATURE) |
         Q(vc_file_item__vc_file=vc_file, status=ApplicationStatus.VC_FILE),
-    ).select_related('program', 'institute').order_by('tracking_no')
+    ).select_related('campus', 'department', 'program').order_by('tracking_no')
 
     form = VCFileCreateForm(request.POST or None)
     form.fields['applications'].queryset = available_apps
@@ -785,7 +832,7 @@ def vc_file_edit(request, pk):
                 Q(vc_file_item__vc_file=vc_file, status=ApplicationStatus.VC_FILE),
                 pk__in=selected_ids,
             )
-            apps = list(still_available.select_related('program', 'institute').order_by('tracking_no'))
+            apps = list(still_available.select_related('campus', 'department', 'program').order_by('tracking_no'))
             if len(apps) != len(selected_ids):
                 form.add_error('applications', 'One or more selected applications are no longer available for this draft file.')
             else:
@@ -889,9 +936,9 @@ def export_applications(request):
     wb = Workbook()
     ws = wb.active
     ws.title = 'Applications'
-    ws.append(['Tracking No', 'Name', 'Father Name', 'CNIC', 'Email', 'Registration No', 'Roll No', 'Program', 'Institute', 'Type', 'Status', 'Created'])
-    for app in DegreeApplication.objects.select_related('program', 'institute').all():
-        ws.append([app.tracking_no, app.student_name, app.father_name, format_cnic_for_display(app.cnic), app.email, app.registration_no, app.roll_no, app.program.name, app.institute.name, app.get_application_type_display(), app.get_status_display(), app.created_at.strftime('%Y-%m-%d')])
+    ws.append(['Tracking No', 'Name', 'Father Name', 'CNIC', 'Email', 'Registration No', 'Roll No', 'Campus', 'Department', 'Program', 'Type', 'Status', 'Created'])
+    for app in DegreeApplication.objects.select_related('campus', 'department', 'program').all():
+        ws.append([app.tracking_no, app.student_name, app.father_name, format_cnic_for_display(app.cnic), app.email, app.registration_no, app.roll_no, app.campus.name if app.campus else '', app.department.name if app.department else '', app.program.name, app.get_application_type_display(), app.get_status_display(), app.created_at.strftime('%Y-%m-%d')])
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = 'attachment; filename=degree_applications.xlsx'
     wb.save(response)

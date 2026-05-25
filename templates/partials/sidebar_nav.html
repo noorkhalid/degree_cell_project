@@ -16,6 +16,9 @@
     <a class="side-link {% if request.resolver_match.namespace == 'degree' and request.resolver_match.url_name == 'processing' %}active{% endif %}" {% if request.resolver_match.namespace == 'degree' and request.resolver_match.url_name == 'processing' %}aria-current="page"{% endif %} href="{% url 'degree:processing' %}">
       <i class="bi bi-arrow-left-right"></i><span>Processing Desk</span>
     </a>
+    <a class="side-link {% if request.resolver_match.namespace == 'degree' and request.resolver_match.url_name == 'handover_slip' %}active{% endif %}" {% if request.resolver_match.namespace == 'degree' and request.resolver_match.url_name == 'handover_slip' %}aria-current="page"{% endif %} href="{% url 'degree:handover_slip' %}">
+      <i class="bi bi-file-earmark-text"></i><span>Handover Slip</span>
+    </a>
     <a class="side-link {% if request.resolver_match.namespace == 'degree' and 'vc_file' in request.resolver_match.url_name %}active{% endif %}" {% if request.resolver_match.namespace == 'degree' and 'vc_file' in request.resolver_match.url_name %}aria-current="page"{% endif %} href="{% url 'degree:vc_file_list' %}">
       <i class="bi bi-folder-check"></i><span>VC File</span>
     </a>
@@ -27,8 +30,11 @@
     </a>
 
     <div class="nav-section">Setup</div>
-    <a class="side-link {% if request.resolver_match.namespace == 'academics' and 'institute' in request.resolver_match.url_name %}active{% endif %}" {% if request.resolver_match.namespace == 'academics' and 'institute' in request.resolver_match.url_name %}aria-current="page"{% endif %} href="{% url 'academics:institutes' %}">
-      <i class="bi bi-building"></i><span>Institutes</span>
+    <a class="side-link {% if request.resolver_match.namespace == 'academics' and 'campus' in request.resolver_match.url_name %}active{% endif %}" {% if request.resolver_match.namespace == 'academics' and 'campus' in request.resolver_match.url_name %}aria-current="page"{% endif %} href="{% url 'academics:campuses' %}">
+      <i class="bi bi-buildings"></i><span>Campuses</span>
+    </a>
+    <a class="side-link {% if request.resolver_match.namespace == 'academics' and 'department' in request.resolver_match.url_name %}active{% endif %}" {% if request.resolver_match.namespace == 'academics' and 'department' in request.resolver_match.url_name %}aria-current="page"{% endif %} href="{% url 'academics:departments' %}">
+      <i class="bi bi-building"></i><span>Departments</span>
     </a>
     <a class="side-link {% if request.resolver_match.namespace == 'academics' and 'program' in request.resolver_match.url_name %}active{% endif %}" {% if request.resolver_match.namespace == 'academics' and 'program' in request.resolver_match.url_name %}aria-current="page"{% endif %} href="{% url 'academics:programs' %}">
       <i class="bi bi-journal-bookmark"></i><span>Programs</span>
