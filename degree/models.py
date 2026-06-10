@@ -21,6 +21,7 @@ class FeeTiming(models.TextChoices):
 class ApplicationStatus(models.TextChoices):
     # Operational status names requested by the Degree Cell.
     # Existing database codes are kept where possible to avoid breaking old records.
+    SUBMITTED = 'SUBMITTED', 'Submitted'
     DOCUMENTS_REQUIRED = 'DOCUMENTS_REQUIRED', 'Objection'
     PENDING_VERIFICATION = 'PENDING_VERIFICATION', 'In Process'
     PRINTED_PENDING_SIGNATURE = 'PRINTED_PENDING_SIGNATURE', 'Printed'
@@ -31,6 +32,7 @@ class ApplicationStatus(models.TextChoices):
 
 
 ACTIVE_APPLICATION_STATUS_CHOICES = (
+    (ApplicationStatus.SUBMITTED, ApplicationStatus.SUBMITTED.label),
     (ApplicationStatus.DOCUMENTS_REQUIRED, ApplicationStatus.DOCUMENTS_REQUIRED.label),
     (ApplicationStatus.PENDING_VERIFICATION, ApplicationStatus.PENDING_VERIFICATION.label),
     (ApplicationStatus.PRINTED_PENDING_SIGNATURE, ApplicationStatus.PRINTED_PENDING_SIGNATURE.label),
@@ -39,6 +41,7 @@ ACTIVE_APPLICATION_STATUS_CHOICES = (
 )
 
 APPLICATION_FILTER_STATUS_CHOICES = (
+    (ApplicationStatus.SUBMITTED, ApplicationStatus.SUBMITTED.label),
     (ApplicationStatus.DOCUMENTS_REQUIRED, ApplicationStatus.DOCUMENTS_REQUIRED.label),
     (ApplicationStatus.PENDING_VERIFICATION, ApplicationStatus.PENDING_VERIFICATION.label),
     (ApplicationStatus.PRINTED_PENDING_SIGNATURE, ApplicationStatus.PRINTED_PENDING_SIGNATURE.label),
@@ -168,7 +171,7 @@ class FeeStructure(models.Model):
 
 class DegreeApplication(models.Model):
     tracking_no = models.CharField(max_length=20, unique=True, editable=False)
-    status = models.CharField(max_length=35, choices=ApplicationStatus.choices, default=ApplicationStatus.DOCUMENTS_REQUIRED)
+    status = models.CharField(max_length=35, choices=ApplicationStatus.choices, default=ApplicationStatus.SUBMITTED)
 
     student_name = models.CharField(max_length=255)
     father_name = models.CharField(max_length=255)
@@ -240,6 +243,32 @@ class DegreeApplication(models.Model):
     @property
     def total_paid(self):
         return self.payments.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+
+    @staticmethod
+    def add_calendar_months(start_date, months):
+        month_index = start_date.month - 1 + months
+        year = start_date.year + month_index // 12
+        month = month_index % 12 + 1
+        last_day = [31, 29 if year % 4 == 0 and (year % 100 != 0 or year % 400 == 0) else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1]
+        return start_date.replace(year=year, month=month, day=min(start_date.day, last_day))
+
+    @property
+    def estimated_completion_date(self):
+        """Calendar-day expected completion date shown on public tracking."""
+        start_date = timezone.localtime(self.created_at).date() if self.created_at else timezone.localdate()
+        if self.application_type == ApplicationType.URGENT:
+            return start_date + timedelta(days=7)
+        return self.add_calendar_months(start_date, 3)
+
+    @property
+    def is_urgent_application(self):
+        return self.application_type == ApplicationType.URGENT
+
+    @property
+    def urgent_completion_note(self):
+        if self.is_urgent_application:
+            return 'Subject to the availability of Controller and Vice Chancellor.'
+        return ''
 
     def generate_tracking_no(self):
         year = timezone.localdate().year

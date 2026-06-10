@@ -190,7 +190,7 @@ class DegreeApplicationForm(forms.ModelForm):
         obj.declared_result_date = timezone.localdate()
         obj.session_year = ''
         all_docs_complete = all(self.checklist_data.values())
-        obj.status = ApplicationStatus.PENDING_VERIFICATION if all_docs_complete else ApplicationStatus.DOCUMENTS_REQUIRED
+        obj.status = ApplicationStatus.SUBMITTED if all_docs_complete else ApplicationStatus.DOCUMENTS_REQUIRED
         if commit:
             obj.save()
             ApplicationChecklist.objects.create(application=obj, checked_by=self.user, **self.checklist_data)

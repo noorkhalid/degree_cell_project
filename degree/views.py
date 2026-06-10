@@ -78,6 +78,7 @@ def dashboard(request):
     # Count both current status codes and old/legacy codes, so existing local data
     # is still reflected correctly on the dashboard.
     dashboard_counts = {
+        'submitted': status_counts.get(ApplicationStatus.SUBMITTED, 0),
         'in_process': (
             status_counts.get(ApplicationStatus.PENDING_VERIFICATION, 0)
             + status_counts.get('IN_PROCESS', 0)
@@ -167,8 +168,18 @@ def get_application_fee(request):
 
 
 
-PUBLIC_STATUS_STEPS = [
+PUBLIC_STANDARD_STATUS_STEPS = [
+    ApplicationStatus.SUBMITTED,
+    ApplicationStatus.PENDING_VERIFICATION,
+    ApplicationStatus.PRINTED_PENDING_SIGNATURE,
+    ApplicationStatus.VC_FILE,
+    ApplicationStatus.READY_FOR_COLLECTION,
+    ApplicationStatus.DELIVERED,
+]
+
+PUBLIC_OBJECTION_STATUS_STEPS = [
     ApplicationStatus.DOCUMENTS_REQUIRED,
+    ApplicationStatus.SUBMITTED,
     ApplicationStatus.PENDING_VERIFICATION,
     ApplicationStatus.PRINTED_PENDING_SIGNATURE,
     ApplicationStatus.VC_FILE,
@@ -177,6 +188,7 @@ PUBLIC_STATUS_STEPS = [
 ]
 
 PUBLIC_STATUS_ICONS = {
+    ApplicationStatus.SUBMITTED: 'bi-send-check-fill',
     ApplicationStatus.DOCUMENTS_REQUIRED: 'bi-exclamation-circle-fill',
     ApplicationStatus.PENDING_VERIFICATION: 'bi-hourglass-split',
     ApplicationStatus.PRINTED_PENDING_SIGNATURE: 'bi-printer-fill',
@@ -187,6 +199,7 @@ PUBLIC_STATUS_ICONS = {
 }
 
 PUBLIC_STATUS_CLASSES = {
+    ApplicationStatus.SUBMITTED: 'submitted',
     ApplicationStatus.DOCUMENTS_REQUIRED: 'objection',
     ApplicationStatus.PENDING_VERIFICATION: 'process',
     ApplicationStatus.PRINTED_PENDING_SIGNATURE: 'printed',
@@ -197,28 +210,48 @@ PUBLIC_STATUS_CLASSES = {
 }
 
 
+def application_has_objection_history(app, display_status):
+    """Return True when this application is/was ever in Objection.
+
+    Current Objection must be shown as the first public step. If an application
+    never had Objection, the Objection stage is removed from student tracking.
+    """
+    if display_status == ApplicationStatus.DOCUMENTS_REQUIRED:
+        return True
+    try:
+        return app.status_logs.filter(
+            Q(to_status=ApplicationStatus.DOCUMENTS_REQUIRED) |
+            Q(from_status=ApplicationStatus.DOCUMENTS_REQUIRED) |
+            Q(to_status='OBJECTION') |
+            Q(from_status='OBJECTION')
+        ).exists()
+    except Exception:
+        return False
+
+
 def prepare_public_tracking_application(app):
     """Attach display-only tracking helpers for the public tracking page.
 
-    This helper also makes Objection applications clear for students by
-    exposing the deficient/missing checklist items on the public page and
-    receipt. Legacy status codes are normalized only for display/progress so
-    older local databases keep working without a data migration.
+    Public tracking now uses two flows:
+    1. Normal applications: Submitted -> In Process -> Printed -> VC File -> Ready for Collection -> Collected
+    2. Applications that are/were in Objection: Objection -> Submitted -> In Process -> Printed -> VC File -> Ready for Collection -> Collected
     """
     display_status = LEGACY_STATUS_MAP.get(app.status, app.status)
+    has_objection_history = application_has_objection_history(app, display_status)
+    status_steps = PUBLIC_OBJECTION_STATUS_STEPS if has_objection_history else PUBLIC_STANDARD_STATUS_STEPS
 
     if display_status == ApplicationStatus.CANCELLED:
         step_index = 0
         progress = 100
     else:
         try:
-            step_index = PUBLIC_STATUS_STEPS.index(display_status)
+            step_index = status_steps.index(display_status)
         except ValueError:
             step_index = 0
-        progress = round(((step_index + 1) / len(PUBLIC_STATUS_STEPS)) * 100)
+        progress = round(((step_index + 1) / len(status_steps)) * 100)
 
     public_steps = []
-    for index, status in enumerate(PUBLIC_STATUS_STEPS):
+    for index, status in enumerate(status_steps):
         public_steps.append({
             'code': status,
             'label': ApplicationStatus(status).label,
@@ -234,9 +267,10 @@ def prepare_public_tracking_application(app):
     if checklist:
         missing_documents = list(checklist.missing_documents)
 
-    # If an application is in Objection but no checklist row exists, keep the
-    # message useful instead of silently hiding the objection reason area.
-    if display_status == ApplicationStatus.DOCUMENTS_REQUIRED and not missing_documents:
+    # Show the missing-documents box only when the application is currently in Objection.
+    if display_status != ApplicationStatus.DOCUMENTS_REQUIRED:
+        missing_documents = []
+    elif not missing_documents:
         missing_documents = ['Required documents are incomplete. Please contact Degree Cell for details.']
 
     app.public_display_status = display_status
@@ -246,8 +280,8 @@ def prepare_public_tracking_application(app):
     app.public_status_class = PUBLIC_STATUS_CLASSES.get(display_status, 'process')
     app.public_status_icon = PUBLIC_STATUS_ICONS.get(display_status, 'bi-info-circle-fill')
     app.public_missing_documents = missing_documents
+    app.public_has_objection_history = has_objection_history
     return app
-
 
 def public_tracking(request):
     """Public CNIC-based degree application tracking page.
@@ -328,10 +362,10 @@ def update_documents(request, pk):
             checklist.save()
         old = app.status
         if checklist.is_complete and app.status == ApplicationStatus.DOCUMENTS_REQUIRED:
-            app.status = ApplicationStatus.PENDING_VERIFICATION
+            app.status = ApplicationStatus.SUBMITTED
             app.save(update_fields=['status', 'updated_at'])
-            log_status(app, request.user, old, app.status, 'Required documents completed. Application is now ready for processing.')
-            messages.success(request, 'Documents completed. Application is now In Process.')
+            log_status(app, request.user, old, app.status, 'Required documents completed. Application is now Submitted.')
+            messages.success(request, 'Documents completed. Application is now Submitted.')
         elif not checklist.is_complete:
             app.status = ApplicationStatus.DOCUMENTS_REQUIRED
             app.save(update_fields=['status', 'updated_at'])
@@ -394,15 +428,10 @@ def fee_structure_edit(request, pk):
 
 @role_required(UserProfile.Role.DESK)
 def handover_slip(request):
-    """Prepare a manual printable handover slip for applications.
-
-    This feature does not change any status. It only lets the Desk Officer
-    select In Process applications, print the sheet, and collect manual
-    signatures from the Verifier and Printing Officer on the same sheet.
-    """
+    """Print a handover slip and move selected Submitted applications to In Process."""
     q = request.GET.get('q', '').strip()
     eligible = DegreeApplication.objects.select_related('campus', 'department', 'program').filter(
-        status=ApplicationStatus.PENDING_VERIFICATION
+        status=ApplicationStatus.SUBMITTED
     )
     if q:
         eligible = eligible.filter(
@@ -419,12 +448,18 @@ def handover_slip(request):
             return redirect('degree:handover_slip')
         selected_apps = list(
             DegreeApplication.objects.select_related('campus', 'department', 'program')
-            .filter(pk__in=selected_ids, status=ApplicationStatus.PENDING_VERIFICATION)
+            .filter(pk__in=selected_ids, status=ApplicationStatus.SUBMITTED)
             .order_by('student_name', 'registration_no')
         )
         if not selected_apps:
-            messages.error(request, 'Selected applications are not eligible. Only In Process applications can be printed on the handover slip.')
+            messages.error(request, 'Selected applications are not eligible. Only Submitted applications can be printed on the handover slip.')
             return redirect('degree:handover_slip')
+        with transaction.atomic():
+            for app in selected_apps:
+                old_status = app.status
+                app.status = ApplicationStatus.PENDING_VERIFICATION
+                app.save(update_fields=['status', 'updated_at'])
+                log_status(app, request.user, old_status, app.status, 'Handover slip printed; moved to In Process.')
         return render(request, 'degree/handover_slip_print.html', {
             'applications': selected_apps,
             'printed_at': timezone.now(),
@@ -441,9 +476,10 @@ def handover_slip(request):
 def application_processing(request):
     """Card-based processing desk with only logical next-step movements."""
     q = request.GET.get('q', '').strip()
-    status_filter = request.GET.get('status', ApplicationStatus.PENDING_VERIFICATION).strip() or ApplicationStatus.PENDING_VERIFICATION
+    status_filter = request.GET.get('status', ApplicationStatus.SUBMITTED).strip() or ApplicationStatus.SUBMITTED
 
     card_statuses = [
+        ApplicationStatus.SUBMITTED,
         ApplicationStatus.DOCUMENTS_REQUIRED,
         ApplicationStatus.PENDING_VERIFICATION,
         ApplicationStatus.PRINTED_PENDING_SIGNATURE,
@@ -466,7 +502,8 @@ def application_processing(request):
         )
 
     next_status_map = {
-        ApplicationStatus.DOCUMENTS_REQUIRED: ApplicationStatus.PENDING_VERIFICATION,
+        ApplicationStatus.SUBMITTED: ApplicationStatus.PENDING_VERIFICATION,
+        ApplicationStatus.DOCUMENTS_REQUIRED: ApplicationStatus.SUBMITTED,
         ApplicationStatus.PENDING_VERIFICATION: ApplicationStatus.PRINTED_PENDING_SIGNATURE,
         ApplicationStatus.PRINTED_PENDING_SIGNATURE: ApplicationStatus.VC_FILE,
         ApplicationStatus.VC_FILE: ApplicationStatus.READY_FOR_COLLECTION,
@@ -487,7 +524,7 @@ def application_processing(request):
             messages.error(request, 'No matching applications found for this status.')
             return redirect(f'{request.path}?status={status_filter}&q={q}')
 
-        # Objection -> In Process is allowed only when documents are complete.
+        # Objection -> Submitted is allowed only when documents are complete.
         if action == 'advance' and status_filter == ApplicationStatus.DOCUMENTS_REQUIRED:
             updated, skipped = 0, []
             with transaction.atomic():
@@ -497,14 +534,18 @@ def application_processing(request):
                         skipped.append(f'{app.tracking_no}: documents still incomplete')
                         continue
                     old = app.status
-                    app.status = ApplicationStatus.PENDING_VERIFICATION
+                    app.status = ApplicationStatus.SUBMITTED
                     app.save(update_fields=['status', 'updated_at'])
-                    log_status(app, request.user, old, app.status, 'Moved from Objection to In Process from processing desk.')
+                    log_status(app, request.user, old, app.status, 'Moved from Objection to Submitted from processing desk.')
                     updated += 1
             if updated:
-                messages.success(request, f'{updated} application(s) moved to In Process.')
+                messages.success(request, f'{updated} application(s) moved to Submitted.')
             if skipped:
                 messages.warning(request, 'Skipped: ' + '; '.join(skipped[:8]) + (' ...' if len(skipped) > 8 else ''))
+
+        elif action == 'advance' and status_filter == ApplicationStatus.SUBMITTED:
+            messages.info(request, 'Use Print Handover Slip. Selected Submitted applications become In Process automatically when the slip is printed.')
+            return redirect('degree:handover_slip')
 
         elif action == 'advance' and status_filter == ApplicationStatus.PENDING_VERIFICATION:
             messages.info(request, 'Printed status requires Book No and Degree Sheet Serial No. Use Enter Print Details; the status becomes Printed automatically after saving.')

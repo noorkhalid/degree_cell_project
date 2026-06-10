@@ -35,6 +35,11 @@
       <tr><th>Department</th><td>{{ app.department }}</td></tr>
       <tr><th>Program</th><td>{{ app.program }}</td></tr>
       <tr><th>Application Type</th><td>{{ app.get_application_type_display }}</td></tr>
+      <tr><th>Received Mode</th><td>{{ app.get_received_mode_display|default:'-' }}</td></tr>
+      {% if app.received_mode == 'REPRESENTATIVE' %}
+      <tr><th>Receiver</th><td>{{ app.receiver_name|default:'-' }} / {{ app.receiver_cnic|cnic_format }} / {{ app.receiver_mobile|mobile_format }}</td></tr>
+      {% endif %}
+      {% if app.receiving_remarks %}<tr><th>Receiving Remarks</th><td>{{ app.receiving_remarks }}</td></tr>{% endif %}
       <tr><th>Timing</th><td>{{ app.get_fee_timing_at_entry_display }}</td></tr>
       <tr><th>Bank Challan Fee</th><td>Rs. {{ app.required_fee_at_entry }} / Paid Rs. {{ app.total_paid }}</td></tr>
       <tr><th>Fee Version</th><td>{% if app.fee_structure_at_entry %}Effective {{ app.fee_structure_at_entry.effective_from }}{% if app.fee_structure_at_entry.effective_to %} to {{ app.fee_structure_at_entry.effective_to }}{% endif %}{% else %}<span class='text-muted'>Saved amount snapshot only</span>{% endif %}</td></tr>

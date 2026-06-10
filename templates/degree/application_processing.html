@@ -59,7 +59,9 @@
             </div>
           </div>
           <div class="bulk-submit">
-            {% if selected_status == 'PENDING_VERIFICATION' %}
+            {% if selected_status == 'SUBMITTED' %}
+              <a class="btn btn-primary" href="{% url 'degree:handover_slip' %}"><i class="bi bi-printer me-1"></i>Print Handover Slip</a>
+            {% elif selected_status == 'PENDING_VERIFICATION' %}
               <a class="btn btn-primary" href="{% url 'degree:bulk_mark_printed' %}"><i class="bi bi-printer me-1"></i>Enter Print Details</a>
             {% elif selected_status == 'READY_FOR_COLLECTION' %}
               <button class="btn btn-primary" type="submit"><i class="bi bi-box-arrow-up-right me-1"></i>Open Delivery for Selected</button>

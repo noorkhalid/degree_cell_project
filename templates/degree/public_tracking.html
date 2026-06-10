@@ -82,19 +82,29 @@
           <div>
             <div class="track-no">Tracking No: {{ app.tracking_no }}</div>
             <h3>{{ app.student_name }}</h3>
-            <p>{{ app.campus }} · {{ app.department }} · {{ app.program }}</p>
+            <p>{{ app.department.name }} · {{ app.program.name }}</p>
           </div>
-          <div class="track-card-actions">
+          <div class="track-card-actions track-current-status-wrap">
+            <span class="track-current-status-label">Current Status:</span>
             <span class="track-status-badge track-status-{{ app.public_status_class }}"><i class="bi {{ app.public_status_icon }} me-1"></i>{{ app.public_display_status_label }}</span>
-            <a class="btn btn-sm btn-primary no-print" href="{% url 'degree:public_receipt' app.tracking_no %}?cnic={{ cnic_digits }}" target="_blank" rel="noopener">
-              <i class="bi bi-download me-1"></i>Receipt / PDF
-            </a>
           </div>
         </div>
 
-        <div class="track-progress-wrap">
+        <div class="track-estimated-card">
+          <div class="track-estimated-icon"><i class="bi bi-calendar-check"></i></div>
+          <div class="track-estimated-body">
+            <span>Expected Completion Date</span>
+            <strong>{{ app.estimated_completion_date|date:'d M Y' }}</strong>
+            {% if app.is_urgent_application %}
+              <p><i class="bi bi-info-circle me-1"></i>{{ app.urgent_completion_note }}</p>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="track-progress-wrap track-section-card">
+          <div class="track-section-title"><i class="bi bi-graph-up-arrow me-1"></i>Application Progress</div>
           <div class="track-progress-head">
-            <span>Application Progress</span>
+            <span>Current Progress</span>
             <strong>{{ app.public_progress }}%</strong>
           </div>
           <div class="track-progress" role="progressbar" aria-valuenow="{{ app.public_progress }}" aria-valuemin="0" aria-valuemax="100">
@@ -110,13 +120,16 @@
           </div>
         </div>
 
-        <div class="track-info-grid">
-          <div><span>Father Name</span><strong>{{ app.father_name }}</strong></div>
-          <div><span>Registration No</span><strong>{{ app.registration_no }}</strong></div>
-          <div><span>Roll No</span><strong>{{ app.roll_no|default:'-' }}</strong></div>
-          <div><span>Application Type</span><strong>{{ app.get_application_type_display }}</strong></div>
-          <div><span>Submitted On</span><strong>{{ app.created_at|date:'d M Y' }}</strong></div>
-          <div><span>Last Updated</span><strong>{{ app.updated_at|date:'d M Y, h:i A' }}</strong></div>
+        <div class="track-info-card track-section-card">
+          <div class="track-section-title"><i class="bi bi-person-lines-fill me-1"></i>Application Details</div>
+          <div class="track-info-grid">
+            <div><span>Father Name</span><strong>{{ app.father_name }}</strong></div>
+            <div><span>Registration No</span><strong>{{ app.registration_no }}</strong></div>
+            <div><span>Roll No</span><strong>{{ app.roll_no|default:'-' }}</strong></div>
+            <div><span>Application Type</span><strong>{{ app.get_application_type_display }}</strong></div>
+            <div><span>Submitted On</span><strong>{{ app.created_at|date:'d M Y' }}</strong></div>
+            <div><span>Last Updated</span><strong>{{ app.updated_at|date:'d M Y, h:i A' }}</strong></div>
+          </div>
         </div>
 
         {% if app.public_missing_documents %}
@@ -129,8 +142,8 @@
           </div>
         {% endif %}
 
-        <div class="track-timeline-wrap">
-          <h4>Complete Tracking History</h4>
+        <div class="track-timeline-wrap track-section-card">
+          <div class="track-section-title"><i class="bi bi-clock-history me-1"></i>Complete Tracking History</div>
           <div class="track-timeline track-timeline-animated">
             {% for log in app.status_logs.all %}
               <div class="track-timeline-item" style="--delay: {{ forloop.counter0 }};">
