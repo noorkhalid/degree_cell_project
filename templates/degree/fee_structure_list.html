@@ -22,6 +22,13 @@
     </select>
   </div>
   <div class="col-md-3">
+    <label class="form-label">Certificate type</label>
+    <select name="certificate_type" class="form-select">
+      <option value="">All Certificate Types</option>
+      {% for value, label in certificate_types %}<option value="{{ value }}" {% if request.GET.certificate_type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-md-3">
     <label class="form-label">Timing</label>
     <select name="timing" class="form-select">
       <option value="">All Timings</option>
@@ -55,13 +62,14 @@
     <table class="table align-middle mb-0">
       <thead>
         <tr>
-          <th>Program Level</th><th>Timing</th><th>Application Type</th><th class="text-end">Amount</th><th>Effective From</th><th>Effective To</th><th>Status</th><th>Remarks</th><th class="text-end">Action</th>
+          <th>Program Level</th><th>Certificate Type</th><th>Timing</th><th>Application Type</th><th class="text-end">Amount</th><th>Effective From</th><th>Effective To</th><th>Status</th><th>Remarks</th><th class="text-end">Action</th>
         </tr>
       </thead>
       <tbody>
         {% for item in items %}
         <tr>
           <td>{{ item.get_program_level_display }}</td>
+          <td>{{ item.get_certificate_type_display }}</td>
           <td>{{ item.get_timing_display }}</td>
           <td>{{ item.get_application_type_display }}</td>
           <td class="text-end fw-semibold">Rs. {{ item.amount }}</td>
@@ -76,7 +84,7 @@
           <td class="text-end"><a class="btn btn-sm btn-outline-primary rounded-3" href="{% url 'degree:fee_structure_edit' item.pk %}">View/Edit</a></td>
         </tr>
         {% empty %}
-        <tr><td colspan="9" class="text-center text-muted py-5">No fee structure found. Click Add New Fee Version to create one.</td></tr>
+        <tr><td colspan="10" class="text-center text-muted py-5">No fee structure found. Click Add New Fee Version to create one.</td></tr>
         {% endfor %}
       </tbody>
     </table>

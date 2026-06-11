@@ -22,8 +22,8 @@ class ChecklistInline(admin.StackedInline):
 
 @admin.register(DegreeApplication)
 class DegreeApplicationAdmin(admin.ModelAdmin):
-    list_display = ('tracking_no', 'student_name', 'registration_no', 'cnic', 'email', 'program', 'status', 'application_type', 'created_at')
-    list_filter = ('status', 'application_type', 'program__level', 'created_at')
+    list_display = ('tracking_no', 'student_name', 'registration_no', 'cnic', 'email', 'program', 'status', 'certificate_type', 'application_type', 'created_at')
+    list_filter = ('status', 'certificate_type', 'application_type', 'program__level', 'created_at')
     search_fields = ('tracking_no', 'student_name', 'father_name', 'cnic', 'email', 'registration_no', 'roll_no')
     readonly_fields = ('tracking_no', 'created_at', 'updated_at')
     inlines = [ChecklistInline, PaymentInline]
@@ -31,8 +31,8 @@ class DegreeApplicationAdmin(admin.ModelAdmin):
 
 @admin.register(FeeStructure)
 class FeeStructureAdmin(admin.ModelAdmin):
-    list_display = ('program_level', 'application_type', 'timing', 'amount', 'is_active')
-    list_filter = ('program_level', 'application_type', 'timing', 'is_active')
+    list_display = ('program_level', 'certificate_type', 'application_type', 'timing', 'amount', 'is_active')
+    list_filter = ('program_level', 'certificate_type', 'application_type', 'timing', 'is_active')
 
 
 @admin.register(ApplicationPayment)

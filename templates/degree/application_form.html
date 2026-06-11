@@ -67,6 +67,7 @@
           <div class="col-lg-6 field-wrap"><label class="form-label" for="{{ form.campus.id_for_label }}">{{ form.campus.label }}</label>{{ form.campus }}<div class="text-danger small mt-1">{{ form.campus.errors }}</div></div>
           <div class="col-lg-6 field-wrap"><label class="form-label" for="{{ form.department.id_for_label }}">{{ form.department.label }}</label>{{ form.department }}<div class="text-danger small mt-1">{{ form.department.errors }}</div></div>
           <div class="col-lg-6 field-wrap"><label class="form-label" for="{{ form.program.id_for_label }}">{{ form.program.label }}</label>{{ form.program }}<div class="text-danger small mt-1">{{ form.program.errors }}</div></div>
+          <div class="col-lg-6 field-wrap"><label class="form-label" for="{{ form.certificate_type.id_for_label }}">{{ form.certificate_type.label }}</label>{{ form.certificate_type }}<div class="text-danger small mt-1">{{ form.certificate_type.errors }}</div></div>
           <div class="col-lg-6 field-wrap"><label class="form-label" for="{{ form.timing.id_for_label }}">{{ form.timing.label }}</label>{{ form.timing }}<div class="text-danger small mt-1">{{ form.timing.errors }}</div></div>
           <div class="col-lg-6 field-wrap"><label class="form-label" for="{{ form.application_type.id_for_label }}">{{ form.application_type.label }}</label>{{ form.application_type }}<div class="text-danger small mt-1">{{ form.application_type.errors }}</div></div>
         </div>
@@ -83,7 +84,7 @@
           <div class="col-lg-6 field-wrap"><label class="form-label" for="{{ form.bank.id_for_label }}">{{ form.bank.label }}</label>{{ form.bank }}<div class="text-danger small mt-1">{{ form.bank.errors }}</div></div>
           <div class="col-lg-6 field-wrap"><label class="form-label" for="{{ form.challan_no.id_for_label }}">{{ form.challan_no.label }}</label>{{ form.challan_no }}<div class="text-danger small mt-1">{{ form.challan_no.errors }}</div></div>
           <div class="col-lg-6 field-wrap date-field-wrap"><label class="form-label" for="{{ form.challan_date.id_for_label }}">{{ form.challan_date.label }}</label><div class="date-control" data-date-control><span class="date-display" data-date-display>Select Date</span>{{ form.challan_date }}<i class="bi bi-calendar3 date-icon"></i></div><div class="text-danger small mt-1">{{ form.challan_date.errors }}</div></div>
-          <div class="col-lg-6 field-wrap fee-field"><label class="form-label" for="{{ form.challan_amount.id_for_label }}">{{ form.challan_amount.label }}</label>{{ form.challan_amount }}<div id="feeHelp" class="form-text">Select Program, Timing, and Application Type to calculate challan amount from fee schedule.</div><div class="text-danger small mt-1">{{ form.challan_amount.errors }}</div></div>
+          <div class="col-lg-6 field-wrap fee-field"><label class="form-label" for="{{ form.challan_amount.id_for_label }}">{{ form.challan_amount.label }}</label>{{ form.challan_amount }}<div id="feeHelp" class="form-text">Select Program, Certificate Type, Timing, and Application Type to calculate challan amount from fee schedule.</div><div class="text-danger small mt-1">{{ form.challan_amount.errors }}</div></div>
           <div class="col-lg-6 field-wrap"><label class="form-label" for="{{ form.received_mode.id_for_label }}">{{ form.received_mode.label }}</label>{{ form.received_mode }}<div class="text-danger small mt-1">{{ form.received_mode.errors }}</div></div>
         </div>
       </div>
@@ -206,10 +207,11 @@
 (function () {
   const program = document.getElementById('id_program');
   const timing = document.getElementById('id_timing');
+  const certType = document.getElementById('id_certificate_type');
   const appType = document.getElementById('id_application_type');
   const amount = document.getElementById('id_challan_amount');
   const help = document.getElementById('feeHelp');
-  if (!program || !timing || !appType || !amount) return;
+  if (!program || !certType || !timing || !appType || !amount) return;
 
   function setFeeMessage(text, isError) {
     if (help) {
@@ -232,25 +234,30 @@
     syncApplicationTypeFromTiming();
     const programValue = program.value;
     const timingValue = timing.value;
+    const certValue = certType.value;
     const typeValue = appType.value;
-    if (!programValue || !timingValue || !typeValue) {
+    if (!programValue || !certValue || !timingValue || !typeValue) {
       amount.value = '';
-      setFeeMessage('Select Program, Timing, and Application Type to calculate challan amount from fee schedule.', false);
+      setFeeMessage('Select Program, Certificate Type, Timing, and Application Type to calculate challan amount from fee schedule.', false);
       return;
     }
     const url = "{% url 'degree:get_application_fee' %}"
       + '?program=' + encodeURIComponent(programValue)
+      + '&certificate_type=' + encodeURIComponent(certValue)
       + '&timing=' + encodeURIComponent(timingValue)
       + '&application_type=' + encodeURIComponent(typeValue);
     fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest'}})
       .then(response => response.json())
       .then(data => {
+        if (data.certificate_type) {
+          certType.value = data.certificate_type;
+        }
         if (data.application_type) {
           appType.value = data.application_type;
         }
         if (data.ok) {
           amount.value = data.amount;
-          setFeeMessage('Calculated from fee schedule: ' + data.program_level + ' / ' + data.timing_label + ' / ' + data.application_type_label + '.', false);
+          setFeeMessage('Calculated from fee schedule: ' + data.program_level + ' / ' + data.certificate_type_label + ' / ' + data.timing_label + ' / ' + data.application_type_label + '.', false);
         } else {
           amount.value = '';
           setFeeMessage(data.message || 'Fee not found.', true);
@@ -263,6 +270,7 @@
   }
 
   program.addEventListener('change', fetchFee);
+  certType.addEventListener('change', fetchFee);
   timing.addEventListener('change', fetchFee);
   appType.addEventListener('change', function () {
     appType.removeAttribute('data-auto-urgent');

@@ -18,6 +18,11 @@ class FeeTiming(models.TextChoices):
     AFTER_TIME = 'AFTER_TIME', 'After Time'
 
 
+class CertificateType(models.TextChoices):
+    ORIGINAL = 'ORIGINAL', 'Original Degree'
+    DUPLICATE = 'DUPLICATE', 'Duplicate Degree'
+
+
 class ApplicationStatus(models.TextChoices):
     # Operational status names requested by the Degree Cell.
     # Existing database codes are kept where possible to avoid breaking old records.
@@ -70,6 +75,7 @@ class ReceivingMode(models.TextChoices):
 
 class FeeStructure(models.Model):
     program_level = models.CharField(max_length=20, choices=Program.Level.choices)
+    certificate_type = models.CharField(max_length=20, choices=CertificateType.choices, default=CertificateType.ORIGINAL)
     application_type = models.CharField(max_length=20, choices=ApplicationType.choices)
     timing = models.CharField(max_length=20, choices=FeeTiming.choices)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
@@ -82,13 +88,13 @@ class FeeStructure(models.Model):
     remarks = models.CharField(max_length=255, blank=True)
 
     class Meta:
-        ordering = ['program_level', 'timing', 'application_type', '-effective_from']
+        ordering = ['program_level', 'certificate_type', 'timing', 'application_type', '-effective_from']
         indexes = [
-            models.Index(fields=['program_level', 'application_type', 'timing', 'effective_from']),
+            models.Index(fields=['program_level', 'certificate_type', 'application_type', 'timing', 'effective_from']),
         ]
 
     def __str__(self):
-        return f'{self.program_level} {self.application_type} {self.timing}: {self.amount} from {self.effective_from}'
+        return f'{self.program_level} {self.certificate_type} {self.application_type} {self.timing}: {self.amount} from {self.effective_from}'
 
     @property
     def is_current(self):
@@ -112,6 +118,7 @@ class FeeStructure(models.Model):
 
         overlap_qs = FeeStructure.objects.filter(
             program_level=self.program_level,
+            certificate_type=self.certificate_type,
             application_type=self.application_type,
             timing=self.timing,
             is_active=True,
@@ -129,12 +136,13 @@ class FeeStructure(models.Model):
         super().save(*args, **kwargs)
 
     @classmethod
-    def replace_current(cls, *, program_level, application_type, timing, amount, effective_from, created_by=None, remarks=''):
+    def replace_current(cls, *, program_level, certificate_type, application_type, timing, amount, effective_from, created_by=None, remarks=''):
         if timing == FeeTiming.BEFORE_TIME:
             application_type = ApplicationType.URGENT
         with transaction.atomic():
             previous_fees = cls.objects.select_for_update().filter(
                 program_level=program_level,
+                certificate_type=certificate_type,
                 application_type=application_type,
                 timing=timing,
                 is_active=True,
@@ -145,6 +153,7 @@ class FeeStructure(models.Model):
                 previous.save(update_fields=['effective_to', 'updated_at'])
             return cls.objects.create(
                 program_level=program_level,
+                certificate_type=certificate_type,
                 application_type=application_type,
                 timing=timing,
                 amount=amount,
@@ -156,10 +165,11 @@ class FeeStructure(models.Model):
             )
 
     @classmethod
-    def get_applicable(cls, program_level, application_type, timing, on_date=None):
+    def get_applicable(cls, program_level, certificate_type, application_type, timing, on_date=None):
         on_date = on_date or timezone.localdate()
         return cls.objects.filter(
             program_level=program_level,
+            certificate_type=certificate_type,
             application_type=application_type,
             timing=timing,
             is_active=True,
@@ -191,6 +201,7 @@ class DegreeApplication(models.Model):
     verified_result_date = models.DateField(null=True, blank=True)
 
     application_type = models.CharField(max_length=20, choices=ApplicationType.choices)
+    certificate_type = models.CharField(max_length=20, choices=CertificateType.choices, default=CertificateType.ORIGINAL)
     fee_structure_at_entry = models.ForeignKey(FeeStructure, null=True, blank=True, on_delete=models.PROTECT, related_name='applications')
     fee_timing_at_entry = models.CharField(max_length=20, choices=FeeTiming.choices)
     required_fee_at_entry = models.DecimalField(max_digits=10, decimal_places=2)
@@ -234,10 +245,10 @@ class DegreeApplication(models.Model):
         return FeeTiming.BEFORE_TIME if delta_days <= 60 else FeeTiming.AFTER_TIME
 
     @staticmethod
-    def get_required_fee(program_level, application_type, timing, on_date=None, return_fee=False):
-        fee = FeeStructure.get_applicable(program_level, application_type, timing, on_date=on_date)
+    def get_required_fee(program_level, certificate_type, application_type, timing, on_date=None, return_fee=False):
+        fee = FeeStructure.get_applicable(program_level, certificate_type, application_type, timing, on_date=on_date)
         if not fee:
-            raise ValidationError('No fee structure found for selected level, type, timing, and application date.')
+            raise ValidationError('No fee structure found for selected level, certificate type, application type, timing, and application date.')
         return fee if return_fee else fee.amount
 
     @property

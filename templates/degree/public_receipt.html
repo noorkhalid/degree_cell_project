@@ -45,6 +45,7 @@
         <div><span>Campus</span><strong>{{ app.campus }}</strong></div>
         <div><span>Department</span><strong>{{ app.department }}</strong></div>
         <div><span>Program</span><strong>{{ app.program }}</strong></div>
+        <div><span>Certificate Type</span><strong>{{ app.get_certificate_type_display }}</strong></div>
         <div><span>Application Type</span><strong>{{ app.get_application_type_display }}</strong></div>
         <div><span>Submitted On</span><strong>{{ app.created_at|date:'d M Y' }}</strong></div>
       </div>

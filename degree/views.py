@@ -22,7 +22,21 @@ from .forms import (
     VCFileCreateForm,
     VerificationForm,
 )
-from .models import ACTIVE_APPLICATION_STATUS_CHOICES, APPLICATION_FILTER_STATUS_CHOICES, LEGACY_STATUS_MAP, ApplicationStatus, ApplicationStatusLog, ApplicationType, DegreeApplication, FeeStructure, FeeTiming, VCFile, VCFileItem
+from .models import (
+    ACTIVE_APPLICATION_STATUS_CHOICES,
+    APPLICATION_FILTER_STATUS_CHOICES,
+    LEGACY_STATUS_MAP,
+    ApplicationStatus,
+    ApplicationStatusLog,
+    ApplicationType,
+    CertificateType,
+    DegreeApplication,
+    FeeStructure,
+    FeeTiming,
+    ReceivingMode,
+    VCFile,
+    VCFileItem,
+)
 from .permissions import is_admin, is_desk, is_printing, role_required
 
 
@@ -44,6 +58,14 @@ def ensure_compatible_schema():
                 cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN email varchar(254) NOT NULL DEFAULT ''")
             if 'roll_no' not in columns:
                 cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN roll_no varchar(100) NOT NULL DEFAULT ''")
+            if 'certificate_type' not in columns:
+                cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN certificate_type varchar(20) NOT NULL DEFAULT 'ORIGINAL'")
+            fee_table = FeeStructure._meta.db_table
+            fee_tables = existing_tables
+            if fee_table in fee_tables:
+                fee_columns = {row[1] for row in cursor.execute(f"PRAGMA table_info({fee_table})").fetchall()}
+                if 'certificate_type' not in fee_columns:
+                    cursor.execute(f"ALTER TABLE {fee_table} ADD COLUMN certificate_type varchar(20) NOT NULL DEFAULT 'ORIGINAL'")
             # Normalize old detailed workflow statuses into the four dashboard statuses.
             for old_status, new_status in LEGACY_STATUS_MAP.items():
                 cursor.execute(f"UPDATE {table_name} SET status = ? WHERE status = ?", [new_status, old_status])
@@ -140,19 +162,21 @@ def get_application_fee(request):
     program_id = request.GET.get('program')
     timing = request.GET.get('timing')
     application_type = request.GET.get('application_type')
-    if not program_id or not timing or not application_type:
-        return JsonResponse({'ok': False, 'amount': '', 'message': 'Select Program, Timing, and Application Type.'})
+    certificate_type = request.GET.get('certificate_type')
+    if not program_id or not certificate_type or not timing or not application_type:
+        return JsonResponse({'ok': False, 'amount': '', 'message': 'Select Program, Certificate Type, Timing, and Application Type.'})
 
     if timing == FeeTiming.BEFORE_TIME:
         application_type = ApplicationType.URGENT
 
     program = get_object_or_404(Program, pk=program_id)
-    fee = FeeStructure.get_applicable(program.level, application_type, timing)
+    fee = FeeStructure.get_applicable(program.level, certificate_type, application_type, timing)
     if not fee:
         return JsonResponse({
             'ok': False,
             'amount': '',
-            'message': 'No active fee found for this Program Level, Timing, and Application Type.',
+            'message': 'No active fee found for this Program Level, Certificate Type, Timing, and Application Type.',
+            'certificate_type': certificate_type,
             'application_type': application_type,
             'timing': timing,
         })
@@ -161,6 +185,8 @@ def get_application_fee(request):
         'amount': str(fee.amount),
         'timing': timing,
         'timing_label': dict(FeeTiming.choices)[timing],
+        'certificate_type': certificate_type,
+        'certificate_type_label': dict(CertificateType.choices)[certificate_type],
         'application_type': application_type,
         'application_type_label': dict(ApplicationType.choices)[application_type],
         'program_level': program.level,
@@ -208,6 +234,105 @@ PUBLIC_STATUS_CLASSES = {
     ApplicationStatus.DELIVERED: 'collected',
     ApplicationStatus.CANCELLED: 'cancelled',
 }
+
+
+def get_application_vc_file_no(app):
+    """Safely return the VC file number for public display."""
+    try:
+        return app.vc_file_item.vc_file.file_no
+    except Exception:
+        return ''
+
+
+def get_public_delivery_message(app):
+    """Return student-friendly delivery information for the final public stage."""
+    mode = app.delivery_mode or app.received_mode
+    if mode == ReceivingMode.COURIER:
+        details = []
+        if app.courier_company:
+            details.append(f"Courier Company: {app.courier_company}")
+        if app.courier_tracking_no:
+            details.append(f"Tracking No: {app.courier_tracking_no}")
+        if app.courier_date:
+            details.append(f"Dispatch Date: {app.courier_date.strftime('%d %b %Y')}")
+        suffix = ' ' + ', '.join(details) + '.' if details else ''
+        return f"Your degree has been dispatched through courier.{suffix}"
+
+    if mode == ReceivingMode.REPRESENTATIVE:
+        details = []
+        if app.delivered_to_name:
+            details.append(f"Name: {app.delivered_to_name}")
+        if app.delivered_to_cnic:
+            details.append(f"CNIC: {app.delivered_to_cnic}")
+        if app.delivered_to_mobile:
+            details.append(f"Mobile: {app.delivered_to_mobile}")
+        suffix = ' ' + ', '.join(details) + '.' if details else ''
+        return f"Your degree has been delivered through an authorized representative.{suffix}"
+
+    if app.delivered_to_name or app.delivered_to_cnic or app.delivered_to_mobile:
+        details = []
+        if app.delivered_to_name:
+            details.append(f"Name: {app.delivered_to_name}")
+        if app.delivered_to_cnic:
+            details.append(f"CNIC: {app.delivered_to_cnic}")
+        if app.delivered_to_mobile:
+            details.append(f"Mobile: {app.delivered_to_mobile}")
+        return "Your degree has been delivered to the applicant. " + ', '.join(details) + '.'
+
+    return "Your degree has been delivered to the applicant."
+
+
+def get_public_status_remark(app, log):
+    """Convert internal workflow remarks into clear student-facing tracking text."""
+    to_status = LEGACY_STATUS_MAP.get(log.to_status, log.to_status)
+
+    if to_status == ApplicationStatus.DOCUMENTS_REQUIRED:
+        return "Application saved but documents are incomplete. Processing is blocked until documents are completed."
+    if to_status == ApplicationStatus.SUBMITTED:
+        return "Your application has been submitted successfully."
+    if to_status == ApplicationStatus.PENDING_VERIFICATION:
+        return "Your application has been handed over to the verifier and will be processed soon."
+    if to_status == ApplicationStatus.PRINTED_PENDING_SIGNATURE:
+        return "Your degree has been printed and will be sent to the Controller of Examinations and Vice Chancellor for signature."
+    if to_status == ApplicationStatus.VC_FILE:
+        file_no = get_application_vc_file_no(app)
+        if file_no:
+            return f"Your degree has been included in VC File No. {file_no} for signature process."
+        return "Your degree has been included in a VC file for signature process."
+    if to_status == ApplicationStatus.READY_FOR_COLLECTION:
+        file_no = get_application_vc_file_no(app)
+        if file_no:
+            return f"Your degree is ready for collection and available in VC File No. {file_no}."
+        return "Your degree is ready for collection."
+    if to_status == ApplicationStatus.DELIVERED:
+        return get_public_delivery_message(app)
+    if to_status == ApplicationStatus.CANCELLED:
+        return "This application has been cancelled. Please contact Degree Cell for further information."
+
+    return log.remarks
+
+
+def prepare_public_status_logs(app):
+    """Attach display-only, student-friendly status history rows."""
+    public_logs = []
+    for log in app.status_logs.all():
+        from_status = LEGACY_STATUS_MAP.get(log.from_status, log.from_status) if log.from_status else ''
+        to_status = LEGACY_STATUS_MAP.get(log.to_status, log.to_status)
+        try:
+            from_label = ApplicationStatus(from_status).label if from_status else ''
+        except Exception:
+            from_label = log.from_status or ''
+        try:
+            to_label = ApplicationStatus(to_status).label
+        except Exception:
+            to_label = log.get_to_status_display()
+        public_logs.append({
+            'created_at': log.created_at,
+            'from_label': from_label,
+            'to_label': to_label,
+            'remarks': get_public_status_remark(app, log),
+        })
+    return public_logs
 
 
 def application_has_objection_history(app, display_status):
@@ -281,6 +406,12 @@ def prepare_public_tracking_application(app):
     app.public_status_icon = PUBLIC_STATUS_ICONS.get(display_status, 'bi-info-circle-fill')
     app.public_missing_documents = missing_documents
     app.public_has_objection_history = has_objection_history
+    app.public_show_estimated_completion_date = display_status not in (
+        ApplicationStatus.READY_FOR_COLLECTION,
+        ApplicationStatus.DELIVERED,
+        ApplicationStatus.CANCELLED,
+    )
+    app.public_status_logs = prepare_public_status_logs(app)
     return app
 
 def public_tracking(request):
@@ -304,7 +435,7 @@ def public_tracking(request):
             cnic_formatted = format_cnic_for_display(cnic_digits)
             applications = list(
                 DegreeApplication.objects
-                .select_related('campus', 'department', 'program', 'checklist')
+                .select_related('campus', 'department', 'program', 'checklist', 'vc_file_item__vc_file')
                 .prefetch_related('status_logs')
                 .annotate(
                     cnic_no_dash=Replace(Replace('cnic', Value('-'), Value('')), Value(' '), Value(''))
@@ -328,7 +459,7 @@ def public_receipt(request, tracking_no):
     ensure_compatible_schema()
     cnic_digits = ''.join(ch for ch in (request.GET.get('cnic') or '').strip() if ch.isdigit())
     app = get_object_or_404(
-        DegreeApplication.objects.select_related('campus', 'department', 'program', 'checklist').prefetch_related('status_logs'),
+        DegreeApplication.objects.select_related('campus', 'department', 'program', 'checklist', 'vc_file_item__vc_file').prefetch_related('status_logs'),
         tracking_no=tracking_no
     )
     app_cnic = ''.join(ch for ch in str(app.cnic or '') if ch.isdigit())
@@ -380,12 +511,15 @@ def fee_structure_list(request):
     qs = FeeStructure.objects.all()
     program_level = request.GET.get('program_level', '')
     application_type = request.GET.get('application_type', '')
+    certificate_type = request.GET.get('certificate_type', '')
     timing = request.GET.get('timing', '')
     status = request.GET.get('status', '')
     if program_level:
         qs = qs.filter(program_level=program_level)
     if application_type:
         qs = qs.filter(application_type=application_type)
+    if certificate_type:
+        qs = qs.filter(certificate_type=certificate_type)
     if timing:
         qs = qs.filter(timing=timing)
     today = timezone.localdate()
@@ -399,6 +533,7 @@ def fee_structure_list(request):
         'items': qs,
         'program_levels': FeeStructure._meta.get_field('program_level').choices,
         'application_types': FeeStructure._meta.get_field('application_type').choices,
+        'certificate_types': FeeStructure._meta.get_field('certificate_type').choices,
         'timings': FeeStructure._meta.get_field('timing').choices,
     })
 
@@ -668,6 +803,7 @@ def verify_application(request, pk):
             app.final_fee_timing = DegreeApplication.calculate_timing(verified_date)
             app.final_required_fee = DegreeApplication.get_required_fee(
                 app.program.level,
+                app.certificate_type,
                 app.application_type,
                 app.final_fee_timing,
                 on_date=app.created_at.date() if app.created_at else None,
@@ -977,9 +1113,9 @@ def export_applications(request):
     wb = Workbook()
     ws = wb.active
     ws.title = 'Applications'
-    ws.append(['Tracking No', 'Name', 'Father Name', 'CNIC', 'Email', 'Registration No', 'Roll No', 'Campus', 'Department', 'Program', 'Type', 'Status', 'Created'])
+    ws.append(['Tracking No', 'Name', 'Father Name', 'CNIC', 'Email', 'Registration No', 'Roll No', 'Campus', 'Department', 'Program', 'Certificate Type', 'Application Type', 'Status', 'Created'])
     for app in DegreeApplication.objects.select_related('campus', 'department', 'program').all():
-        ws.append([app.tracking_no, app.student_name, app.father_name, format_cnic_for_display(app.cnic), app.email, app.registration_no, app.roll_no, app.campus.name if app.campus else '', app.department.name if app.department else '', app.program.name, app.get_application_type_display(), app.get_status_display(), app.created_at.strftime('%Y-%m-%d')])
+        ws.append([app.tracking_no, app.student_name, app.father_name, format_cnic_for_display(app.cnic), app.email, app.registration_no, app.roll_no, app.campus.name if app.campus else '', app.department.name if app.department else '', app.program.name, app.get_certificate_type_display(), app.get_application_type_display(), app.get_status_display(), app.created_at.strftime('%Y-%m-%d')])
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = 'attachment; filename=degree_applications.xlsx'
     wb.save(response)

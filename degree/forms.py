@@ -10,6 +10,7 @@ from .models import (
     ACTIVE_APPLICATION_STATUS_CHOICES,
     ApplicationStatus,
     ApplicationType,
+    CertificateType,
     DegreeApplication,
     FeeStructure,
     FeeTiming,
@@ -84,7 +85,7 @@ class DegreeApplicationForm(forms.ModelForm):
         model = DegreeApplication
         fields = [
             'student_name', 'father_name', 'cnic', 'mobile', 'email', 'registration_no', 'roll_no',
-            'postal_address', 'campus', 'department', 'program', 'application_type', 'received_mode',
+            'postal_address', 'campus', 'department', 'program', 'certificate_type', 'application_type', 'received_mode',
         ]
         widgets = {
             'postal_address': forms.Textarea(attrs={'rows': 2}),
@@ -96,6 +97,7 @@ class DegreeApplicationForm(forms.ModelForm):
             'mobile': 'Mobile no',
             'email': 'Email address',
             'received_mode': 'Received mode',
+            'certificate_type': 'Certificate Type',
         }
 
     def __init__(self, *args, **kwargs):
@@ -112,6 +114,7 @@ class DegreeApplicationForm(forms.ModelForm):
         self.fields['program'].empty_label = 'Select Program'
         self.fields['bank'].empty_label = 'Select Bank'
         self.fields['timing'].choices = [('', 'Select Timing')] + list(FeeTiming.choices)
+        self.fields['certificate_type'].choices = [('', 'Select Certificate Type')] + list(CertificateType.choices)
         self.fields['application_type'].choices = [('', 'Select Application Type')] + list(ApplicationType.choices)
         self.fields['received_mode'].choices = [('', 'Select Received Mode')] + list(ReceivingMode.choices)
 
@@ -130,7 +133,7 @@ class DegreeApplicationForm(forms.ModelForm):
         # Keep field order exactly as requested.
         requested_order = [
             'student_name', 'father_name', 'cnic', 'mobile', 'email', 'registration_no', 'roll_no',
-            'postal_address', 'campus', 'department', 'program', 'timing', 'application_type',
+            'postal_address', 'campus', 'department', 'program', 'certificate_type', 'timing', 'application_type',
             'bank', 'challan_no', 'challan_date', 'challan_amount', 'received_mode',
         ]
         self.order_fields(requested_order)
@@ -155,6 +158,7 @@ class DegreeApplicationForm(forms.ModelForm):
             self.add_error('department', 'Select a department that belongs to the selected campus.')
         program = cleaned.get('program')
         timing = cleaned.get('timing')
+        certificate_type = cleaned.get('certificate_type')
         application_type = cleaned.get('application_type')
 
         # Business rule: a Before Time application is always Urgent.
@@ -162,10 +166,11 @@ class DegreeApplicationForm(forms.ModelForm):
             application_type = ApplicationType.URGENT
             cleaned['application_type'] = ApplicationType.URGENT
 
-        if program and timing and application_type:
+        if program and certificate_type and timing and application_type:
             try:
                 fee_structure = DegreeApplication.get_required_fee(
                     program.level,
+                    certificate_type,
                     application_type,
                     timing,
                     return_fee=True,
@@ -230,7 +235,7 @@ class AdminApplicationEditForm(forms.ModelForm):
         model = DegreeApplication
         fields = [
             'student_name', 'father_name', 'cnic', 'mobile', 'email', 'registration_no', 'roll_no',
-            'postal_address', 'campus', 'department', 'program', 'fee_timing_at_entry',
+            'postal_address', 'campus', 'department', 'program', 'certificate_type', 'fee_timing_at_entry',
             'application_type', 'received_mode', 'status',
         ]
         widgets = {
@@ -243,6 +248,7 @@ class AdminApplicationEditForm(forms.ModelForm):
             'mobile': 'Mobile no',
             'email': 'Email address',
             'fee_timing_at_entry': 'Timing',
+            'certificate_type': 'Certificate Type',
             'received_mode': 'Received mode',
         }
 
@@ -258,6 +264,7 @@ class AdminApplicationEditForm(forms.ModelForm):
         self.fields['program'].empty_label = 'Select Program'
         self.fields['bank'].empty_label = 'Select Bank'
         self.fields['fee_timing_at_entry'].choices = [('', 'Select Timing')] + list(FeeTiming.choices)
+        self.fields['certificate_type'].choices = [('', 'Select Certificate Type')] + list(CertificateType.choices)
         self.fields['application_type'].choices = [('', 'Select Application Type')] + list(ApplicationType.choices)
         self.fields['received_mode'].choices = [('', 'Select Received Mode')] + list(ReceivingMode.choices)
 
@@ -284,7 +291,7 @@ class AdminApplicationEditForm(forms.ModelForm):
             self.fields['challan_amount'].initial = self.instance.required_fee_at_entry
         self.order_fields([
             'student_name', 'father_name', 'cnic', 'mobile', 'email', 'registration_no', 'roll_no',
-            'postal_address', 'campus', 'department', 'program', 'fee_timing_at_entry',
+            'postal_address', 'campus', 'department', 'program', 'certificate_type', 'fee_timing_at_entry',
             'application_type', 'bank', 'challan_no', 'challan_date',
             'challan_amount', 'received_mode', 'status',
         ])
@@ -309,13 +316,15 @@ class AdminApplicationEditForm(forms.ModelForm):
             self.add_error('department', 'Select a department that belongs to the selected campus.')
         program = cleaned.get('program')
         timing = cleaned.get('fee_timing_at_entry')
+        certificate_type = cleaned.get('certificate_type')
         application_type = cleaned.get('application_type')
         if timing == FeeTiming.BEFORE_TIME:
             application_type = ApplicationType.URGENT
             cleaned['application_type'] = ApplicationType.URGENT
-        if program and timing and application_type:
+        if program and certificate_type and timing and application_type:
             fee_structure = DegreeApplication.get_required_fee(
                 program.level,
+                certificate_type,
                 application_type,
                 timing,
                 on_date=self.instance.created_at.date() if self.instance and self.instance.created_at else None,
@@ -372,6 +381,7 @@ class VerificationForm(forms.Form):
             timing = DegreeApplication.calculate_timing(verified_date)
             required_fee = DegreeApplication.get_required_fee(
                 self.application.program.level,
+                self.application.certificate_type,
                 self.application.application_type,
                 timing,
                 on_date=self.application.created_at.date() if self.application.created_at else None,
@@ -524,7 +534,7 @@ class FeeStructureForm(forms.ModelForm):
         model = FeeStructure
         # Timing is intentionally before application_type in the UI.
         # If timing is BEFORE_TIME, the fee must be created as URGENT automatically.
-        fields = ['program_level', 'timing', 'application_type', 'amount', 'effective_from', 'remarks', 'is_active']
+        fields = ['program_level', 'certificate_type', 'timing', 'application_type', 'amount', 'effective_from', 'remarks', 'is_active']
         widgets = {
             'effective_from': forms.DateInput(attrs={'type': 'date'}),
             'remarks': forms.TextInput(attrs={'placeholder': 'Example: Fee revised by notification dated 2026-05-01'}),
@@ -534,6 +544,7 @@ class FeeStructureForm(forms.ModelForm):
         self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
         self.fields['program_level'].choices = [('', 'Select Program Level')] + list(Program.Level.choices)
+        self.fields['certificate_type'].choices = [('', 'Select Certificate Type')] + list(CertificateType.choices)
         self.fields['timing'].choices = [('', 'Select Timing')] + list(FeeTiming.choices)
         self.fields['application_type'].choices = [('', 'Select Application Type')] + list(ApplicationType.choices)
         self.fields['application_type'].required = False
@@ -544,6 +555,7 @@ class FeeStructureForm(forms.ModelForm):
             self.fields.pop('replace_current')
             self.fields['effective_from'].disabled = True
             self.fields['program_level'].disabled = True
+            self.fields['certificate_type'].disabled = True
             self.fields['timing'].disabled = True
             self.fields['application_type'].disabled = True
             self.fields['is_active'].help_text = 'Use inactive only to retire a wrong future fee. Do not edit old applied fees.'
@@ -551,6 +563,7 @@ class FeeStructureForm(forms.ModelForm):
     def clean(self):
         cleaned = super().clean()
         timing = cleaned.get('timing')
+        certificate_type = cleaned.get('certificate_type')
         application_type = cleaned.get('application_type')
         if timing == FeeTiming.BEFORE_TIME:
             cleaned['application_type'] = ApplicationType.URGENT
@@ -566,6 +579,7 @@ class FeeStructureForm(forms.ModelForm):
         if self.cleaned_data.get('replace_current'):
             return FeeStructure.replace_current(
                 program_level=self.cleaned_data['program_level'],
+                certificate_type=self.cleaned_data['certificate_type'],
                 application_type=self.cleaned_data['application_type'],
                 timing=self.cleaned_data['timing'],
                 amount=self.cleaned_data['amount'],

@@ -90,16 +90,18 @@
           </div>
         </div>
 
-        <div class="track-estimated-card">
-          <div class="track-estimated-icon"><i class="bi bi-calendar-check"></i></div>
-          <div class="track-estimated-body">
-            <span>Expected Completion Date</span>
-            <strong>{{ app.estimated_completion_date|date:'d M Y' }}</strong>
-            {% if app.is_urgent_application %}
-              <p><i class="bi bi-info-circle me-1"></i>{{ app.urgent_completion_note }}</p>
-            {% endif %}
+        {% if app.public_show_estimated_completion_date %}
+          <div class="track-estimated-card">
+            <div class="track-estimated-icon"><i class="bi bi-calendar-check"></i></div>
+            <div class="track-estimated-body">
+              <span>Expected Completion Date</span>
+              <strong>{{ app.estimated_completion_date|date:'d M Y' }}</strong>
+              {% if app.is_urgent_application %}
+                <p><i class="bi bi-info-circle me-1"></i>{{ app.urgent_completion_note }}</p>
+              {% endif %}
+            </div>
           </div>
-        </div>
+        {% endif %}
 
         <div class="track-progress-wrap track-section-card">
           <div class="track-section-title"><i class="bi bi-graph-up-arrow me-1"></i>Application Progress</div>
@@ -126,6 +128,7 @@
             <div><span>Father Name</span><strong>{{ app.father_name }}</strong></div>
             <div><span>Registration No</span><strong>{{ app.registration_no }}</strong></div>
             <div><span>Roll No</span><strong>{{ app.roll_no|default:'-' }}</strong></div>
+            <div><span>Certificate Type</span><strong>{{ app.get_certificate_type_display }}</strong></div>
             <div><span>Application Type</span><strong>{{ app.get_application_type_display }}</strong></div>
             <div><span>Submitted On</span><strong>{{ app.created_at|date:'d M Y' }}</strong></div>
             <div><span>Last Updated</span><strong>{{ app.updated_at|date:'d M Y, h:i A' }}</strong></div>
@@ -145,14 +148,14 @@
         <div class="track-timeline-wrap track-section-card">
           <div class="track-section-title"><i class="bi bi-clock-history me-1"></i>Complete Tracking History</div>
           <div class="track-timeline track-timeline-animated">
-            {% for log in app.status_logs.all %}
+            {% for log in app.public_status_logs %}
               <div class="track-timeline-item" style="--delay: {{ forloop.counter0 }};">
                 <div class="track-timeline-dot"></div>
                 <div class="track-timeline-content">
                   <div class="track-timeline-date">{{ log.created_at|date:'d M Y, h:i A' }}</div>
                   <div class="track-timeline-title">
-                    {% if log.from_status %}{{ log.get_from_status_display }} <i class="bi bi-arrow-right-short"></i>{% endif %}
-                    {{ log.get_to_status_display }}
+                    {% if log.from_label %}{{ log.from_label }} <i class="bi bi-arrow-right-short"></i>{% endif %}
+                    {{ log.to_label }}
                   </div>
                   {% if log.remarks %}<div class="track-timeline-remarks">{{ log.remarks }}</div>{% endif %}
                 </div>

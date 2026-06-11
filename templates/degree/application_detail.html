@@ -34,6 +34,7 @@
       <tr><th>Campus</th><td>{{ app.campus }}</td></tr>
       <tr><th>Department</th><td>{{ app.department }}</td></tr>
       <tr><th>Program</th><td>{{ app.program }}</td></tr>
+      <tr><th>Certificate Type</th><td>{{ app.get_certificate_type_display }}</td></tr>
       <tr><th>Application Type</th><td>{{ app.get_application_type_display }}</td></tr>
       <tr><th>Received Mode</th><td>{{ app.get_received_mode_display|default:'-' }}</td></tr>
       {% if app.received_mode == 'REPRESENTATIVE' %}

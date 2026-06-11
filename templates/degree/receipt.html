@@ -9,7 +9,8 @@
   <div><b>Email:</b> {{ app.email|default:'-' }}</div>
   <div><b>CNIC:</b> {{ app.cnic|cnic_format }}</div>
   <div><b>Program:</b> {{ app.program.name }}</div>
-  <div><b>Type:</b> {{ app.get_application_type_display }}</div>
+  <div><b>Certificate Type:</b> {{ app.get_certificate_type_display }}</div>
+  <div><b>Application Type:</b> {{ app.get_application_type_display }}</div>
   <div><b>Fee:</b> Rs. {{ app.required_fee_at_entry }}</div>
   <div><b>Received:</b> {{ app.created_at|date:'d-m-Y H:i' }}</div>
   <div><b>By:</b> {{ app.created_by.get_full_name|default:app.created_by.username }}</div>
