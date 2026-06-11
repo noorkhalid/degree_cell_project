@@ -7,7 +7,9 @@ from django.db.models.functions import Replace
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
+from datetime import date, datetime
+from decimal import Decimal, InvalidOperation
 from accounts.models import UserProfile
 from academics.models import Program
 from .forms import (
@@ -506,6 +508,46 @@ def update_documents(request, pk):
     return render(request, 'degree/document_checklist_form.html', {'app': app, 'form': form})
 
 
+def _choice_lookup(choices):
+    """Return a lookup that accepts both database codes and display labels."""
+    lookup = {}
+    for value, label in choices:
+        lookup[str(value).strip().lower()] = value
+        lookup[str(label).strip().lower()] = value
+    return lookup
+
+
+def _excel_date(value):
+    if value in (None, ''):
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    text = str(value).strip()
+    for fmt in ('%Y-%m-%d', '%d-%m-%Y', '%d/%m/%Y', '%m/%d/%Y', '%d %b %Y', '%d %B %Y'):
+        try:
+            return datetime.strptime(text, fmt).date()
+        except ValueError:
+            pass
+    raise ValueError('Invalid date format. Use YYYY-MM-DD, for example 2026-06-11.')
+
+
+def _excel_decimal(value):
+    if value in (None, ''):
+        raise ValueError('Amount is required.')
+    text = str(value).replace('Rs.', '').replace('Rs', '').replace(',', '').strip()
+    try:
+        return Decimal(text)
+    except (InvalidOperation, ValueError):
+        raise ValueError('Invalid amount.')
+
+
+def _set_xlsx_headers(response, filename):
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
 @login_required
 def fee_structure_list(request):
     qs = FeeStructure.objects.all()
@@ -557,6 +599,156 @@ def fee_structure_edit(request, pk):
         messages.success(request, 'Fee structure updated.')
         return redirect('degree:fee_structures')
     return render(request, 'degree/fee_structure_form.html', {'form': form, 'title': 'Edit Fee Structure'})
+
+
+
+@role_required(UserProfile.Role.ADMIN)
+def fee_structure_template(request):
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Fee Structure Template'
+    headers = ['Program Level', 'Certificate Type', 'Timing', 'Application Type', 'Amount', 'Effective From', 'Remarks']
+    ws.append(headers)
+    ws.append(['Bachelor', 'Original Degree', 'After Time', 'Normal', 3000, timezone.localdate().strftime('%Y-%m-%d'), ''])
+    ws.append(['Bachelor', 'Duplicate Degree', 'After Time', 'Normal', 5830, timezone.localdate().strftime('%Y-%m-%d'), ''])
+    ws.append(['Master', 'Original Degree', 'Before Time', 'Urgent', 14630, timezone.localdate().strftime('%Y-%m-%d'), 'Before Time is always urgent'])
+    widths = [18, 24, 16, 18, 14, 16, 45]
+    for index, width in enumerate(widths, start=1):
+        ws.column_dimensions[chr(64 + index)].width = width
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    _set_xlsx_headers(response, 'fee_structure_import_template.xlsx')
+    wb.save(response)
+    return response
+
+
+@role_required(UserProfile.Role.ADMIN)
+def fee_structure_export(request):
+    qs = FeeStructure.objects.all()
+    program_level = request.GET.get('program_level', '')
+    certificate_type = request.GET.get('certificate_type', '')
+    timing = request.GET.get('timing', '')
+    application_type = request.GET.get('application_type', '')
+    status = request.GET.get('status', '')
+    if program_level:
+        qs = qs.filter(program_level=program_level)
+    if certificate_type:
+        qs = qs.filter(certificate_type=certificate_type)
+    if timing:
+        qs = qs.filter(timing=timing)
+    if application_type:
+        qs = qs.filter(application_type=application_type)
+    today = timezone.localdate()
+    if status == 'current':
+        qs = qs.filter(is_active=True, effective_from__lte=today).filter(Q(effective_to__isnull=True) | Q(effective_to__gte=today))
+    elif status == 'future':
+        qs = qs.filter(is_active=True, effective_from__gt=today)
+    elif status == 'history':
+        qs = qs.filter(Q(is_active=False) | Q(effective_to__lt=today))
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Fee Structure'
+    ws.append(['Program Level', 'Certificate Type', 'Timing', 'Application Type', 'Amount', 'Effective From', 'Effective To', 'Status', 'Remarks'])
+    for item in qs:
+        if item.is_current:
+            status_label = 'Current'
+        elif item.is_future:
+            status_label = 'Future'
+        else:
+            status_label = 'History'
+        ws.append([
+            item.get_program_level_display(),
+            item.get_certificate_type_display(),
+            item.get_timing_display(),
+            item.get_application_type_display(),
+            float(item.amount),
+            item.effective_from.strftime('%Y-%m-%d') if item.effective_from else '',
+            item.effective_to.strftime('%Y-%m-%d') if item.effective_to else 'Open',
+            status_label,
+            item.remarks or '',
+        ])
+    for index, width in enumerate([18, 24, 16, 18, 14, 16, 16, 14, 45], start=1):
+        ws.column_dimensions[chr(64 + index)].width = width
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    _set_xlsx_headers(response, 'fee_structure_export.xlsx')
+    wb.save(response)
+    return response
+
+
+@role_required(UserProfile.Role.ADMIN)
+def fee_structure_import(request):
+    required_headers = ['program level', 'certificate type', 'timing', 'application type', 'amount', 'effective from']
+    if request.method == 'POST':
+        upload = request.FILES.get('file')
+        if not upload:
+            messages.error(request, 'Please select an Excel file to import.')
+            return redirect('degree:fee_structure_import')
+        try:
+            wb = load_workbook(upload, data_only=True)
+            ws = wb.active
+            header_row = [str(cell.value or '').strip().lower() for cell in ws[1]]
+            missing = [h for h in required_headers if h not in header_row]
+            if missing:
+                messages.error(request, 'Missing required column(s): ' + ', '.join(missing))
+                return redirect('degree:fee_structure_import')
+            header_index = {name: header_row.index(name) for name in header_row if name}
+            program_lookup = _choice_lookup(Program.Level.choices)
+            certificate_lookup = _choice_lookup(CertificateType.choices)
+            timing_lookup = _choice_lookup(FeeTiming.choices)
+            application_lookup = _choice_lookup(ApplicationType.choices)
+            created = 0
+            errors = []
+            with transaction.atomic():
+                for row_no, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+                    if not any(row):
+                        continue
+                    def cell(name):
+                        idx = header_index.get(name)
+                        return row[idx] if idx is not None and idx < len(row) else None
+                    try:
+                        program_level_text = str(cell('program level') or '').strip().lower()
+                        certificate_text = str(cell('certificate type') or '').strip().lower()
+                        timing_text = str(cell('timing') or '').strip().lower()
+                        application_text = str(cell('application type') or '').strip().lower()
+                        if program_level_text not in program_lookup:
+                            raise ValueError('Invalid Program Level.')
+                        if certificate_text not in certificate_lookup:
+                            raise ValueError('Invalid Certificate Type.')
+                        if timing_text not in timing_lookup:
+                            raise ValueError('Invalid Timing.')
+                        timing = timing_lookup[timing_text]
+                        if timing == FeeTiming.BEFORE_TIME:
+                            application_type = ApplicationType.URGENT
+                        else:
+                            if application_text not in application_lookup:
+                                raise ValueError('Invalid Application Type.')
+                            application_type = application_lookup[application_text]
+                        effective_from = _excel_date(cell('effective from'))
+                        if not effective_from:
+                            raise ValueError('Effective From is required.')
+                        amount = _excel_decimal(cell('amount'))
+                        remarks = str(cell('remarks') or '').strip()
+                        FeeStructure.replace_current(
+                            program_level=program_lookup[program_level_text],
+                            certificate_type=certificate_lookup[certificate_text],
+                            application_type=application_type,
+                            timing=timing,
+                            amount=amount,
+                            effective_from=effective_from,
+                            created_by=request.user,
+                            remarks=remarks,
+                        )
+                        created += 1
+                    except Exception as exc:
+                        errors.append(f'Row {row_no}: {exc}')
+                if errors:
+                    raise ValueError('; '.join(errors[:10]))
+            messages.success(request, f'{created} fee structure row(s) imported successfully. Previous matching fees were closed automatically.')
+            return redirect('degree:fee_structures')
+        except Exception as exc:
+            messages.error(request, f'Import failed: {exc}')
+            return redirect('degree:fee_structure_import')
+    return render(request, 'degree/fee_structure_import.html')
 
 
 

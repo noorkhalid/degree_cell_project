@@ -107,6 +107,43 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  function formatDateForDisplay(value) {
+    if (!value) return 'Select Date';
+    const parts = value.split('-');
+    if (parts.length !== 3) return value;
+    const year = Number(parts[0]);
+    const month = Number(parts[1]) - 1;
+    const day = Number(parts[2]);
+    const date = new Date(year, month, day);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  function syncDateControl(control) {
+    const input = control.querySelector('input[type="date"], .date-picker-input');
+    const display = control.querySelector('[data-date-display], .date-display');
+    if (!input || !display) return;
+
+    function updateDisplay() {
+      const hasDate = !!input.value;
+      display.textContent = hasDate ? formatDateForDisplay(input.value) : 'Select Date';
+      control.classList.toggle('has-date', hasDate);
+    }
+
+    control.addEventListener('click', function () {
+      if (typeof input.showPicker === 'function') {
+        try { input.showPicker(); } catch (e) { input.focus(); }
+      } else {
+        input.focus();
+      }
+    });
+    input.addEventListener('input', updateDisplay);
+    input.addEventListener('change', updateDisplay);
+    updateDisplay();
+  }
+
+  document.querySelectorAll('[data-date-control], .date-control').forEach(syncDateControl);
+
   // Important: document checklist does NOT lock the application entry form.
   // Unchecked documents are saved and shown after submission as missing documents.
 });

@@ -18,6 +18,7 @@
 
 body {
   min-height: 100vh;
+  padding-top: var(--topbar-height);
   margin: 0;
   color: var(--dc-text);
   background:
@@ -28,9 +29,11 @@ body {
 
 /* Top bar */
 .topbar {
-  position: sticky;
+  position: fixed;
   top: 0;
-  z-index: 1030;
+  left: 0;
+  right: 0;
+  z-index: 1050;
   height: var(--topbar-height);
   display: flex;
   align-items: center;
@@ -388,6 +391,7 @@ input[readonly] {
 .stamp-box { height: 22mm; border: 1px dashed #777; margin-top: 4mm; text-align:center; padding-top:8mm; }
 
 @media (max-width: 991px) {
+  body { padding-top: 62px; }
   .topbar { height: 62px; padding-inline: 12px; }
   .brand-link span:last-child { font-size: .98rem; }
   .topbar-actions { gap: .45rem; }
@@ -398,7 +402,7 @@ input[readonly] {
 
 @media print {
   .no-print, nav, .alert, .topbar, .sidebar { display:none !important; }
-  body { background:white; }
+  body { background:white; padding-top: 0; }
   main, .page-shell, .page-shell.with-sidebar { padding:0 !important; margin: 0 !important; width: 100% !important; }
   .receipt-pos { border:0; box-shadow:none; }
 }
