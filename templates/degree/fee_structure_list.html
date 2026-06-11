@@ -7,6 +7,8 @@
     <p class="text-muted mb-0">Create new effective fee versions without changing old application records.</p>
   </div>
   <div class="d-flex flex-wrap gap-2">
+    <button type="submit" form="fee-bulk-form" formaction="{% url 'degree:fee_structure_bulk_delete' %}" formmethod="post" class="btn btn-outline-danger rounded-3 px-3" onclick="return confirm('Delete selected fee structure record(s)? Records connected to applications will not be deleted. You can archive them instead.');"><i class="bi bi-trash me-1"></i> Delete Selected</button>
+    <button type="submit" form="fee-bulk-form" formaction="{% url 'degree:fee_structure_bulk_archive' %}" formmethod="post" class="btn btn-outline-warning rounded-3 px-3" onclick="return confirm('Archive selected fee structure record(s)? Archived records will move to history and will not be used for new applications.');"><i class="bi bi-archive me-1"></i> Archive Selected</button>
     <a class="btn btn-outline-secondary rounded-3 px-3" href="{% url 'degree:fee_structure_template' %}"><i class="bi bi-file-earmark-spreadsheet me-1"></i> Download Template</a>
     <a class="btn btn-outline-primary rounded-3 px-3" href="{% url 'degree:fee_structure_import' %}"><i class="bi bi-upload me-1"></i> Import Excel</a>
     <a class="btn btn-outline-success rounded-3 px-3" href="{% url 'degree:fee_structure_export' %}?{{ request.GET.urlencode }}"><i class="bi bi-download me-1"></i> Export Excel</a>
@@ -62,17 +64,20 @@
   </div>
 </form>
 
-<div class="table-card">
+<form id="fee-bulk-form" method="post">
+  {% csrf_token %}
+  <div class="table-card">
   <div class="table-responsive">
     <table class="table align-middle mb-0">
       <thead>
         <tr>
-          <th>Program Level</th><th>Certificate Type</th><th>Timing</th><th>Application Type</th><th class="text-end">Amount</th><th>Effective From</th><th>Effective To</th><th>Status</th><th>Remarks</th><th class="text-end">Action</th>
+          <th style="width:42px"><input type="checkbox" id="select-all-fees" title="Select all"></th><th>Program Level</th><th>Certificate Type</th><th>Timing</th><th>Application Type</th><th class="text-end">Amount</th><th>Effective From</th><th>Effective To</th><th>Status</th><th>Remarks</th><th class="text-end">Action</th>
         </tr>
       </thead>
       <tbody>
         {% for item in items %}
         <tr>
+          <td><input type="checkbox" class="fee-select" name="fee_ids" value="{{ item.pk }}"></td>
           <td>{{ item.get_program_level_display }}</td>
           <td>{{ item.get_certificate_type_display }}</td>
           <td>{{ item.get_timing_display }}</td>
@@ -89,10 +94,20 @@
           <td class="text-end"><a class="btn btn-sm btn-outline-primary rounded-3" href="{% url 'degree:fee_structure_edit' item.pk %}">View/Edit</a></td>
         </tr>
         {% empty %}
-        <tr><td colspan="10" class="text-center text-muted py-5">No fee structure found. Click Add New Fee Version to create one.</td></tr>
+        <tr><td colspan="11" class="text-center text-muted py-5">No fee structure found. Click Add New Fee Version to create one.</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 </div>
+</form>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const selectAll = document.getElementById('select-all-fees');
+    if (!selectAll) return;
+    selectAll.addEventListener('change', function () {
+      document.querySelectorAll('.fee-select').forEach(cb => cb.checked = selectAll.checked);
+    });
+  });
+</script>
 {% endblock %}

@@ -603,6 +603,65 @@ def fee_structure_edit(request, pk):
 
 
 @role_required(UserProfile.Role.ADMIN)
+def fee_structure_bulk_delete(request):
+    if request.method != 'POST':
+        return redirect('degree:fee_structures')
+    ids = request.POST.getlist('fee_ids')
+    if not ids:
+        messages.warning(request, 'Please select at least one fee structure to delete.')
+        return redirect('degree:fee_structures')
+
+    qs = FeeStructure.objects.filter(pk__in=ids)
+    deleted = 0
+    blocked = []
+    with transaction.atomic():
+        for fee in qs:
+            if fee.applications.exists():
+                blocked.append(str(fee))
+                continue
+            fee.delete()
+            deleted += 1
+
+    if deleted:
+        messages.success(request, f'{deleted} fee structure record(s) deleted successfully.')
+    if blocked:
+        messages.warning(request, f'{len(blocked)} selected fee structure record(s) cannot be deleted because they are already connected to applications. You can archive them instead.')
+    return redirect('degree:fee_structures')
+
+
+@role_required(UserProfile.Role.ADMIN)
+def fee_structure_bulk_archive(request):
+    if request.method != 'POST':
+        return redirect('degree:fee_structures')
+    ids = request.POST.getlist('fee_ids')
+    if not ids:
+        messages.warning(request, 'Please select at least one fee structure to archive.')
+        return redirect('degree:fee_structures')
+
+    today = timezone.localdate()
+    qs = FeeStructure.objects.filter(pk__in=ids)
+    archived = 0
+    with transaction.atomic():
+        for fee in qs:
+            changed = False
+            if fee.is_active:
+                fee.is_active = False
+                changed = True
+            if fee.effective_from <= today and (not fee.effective_to or fee.effective_to >= today):
+                fee.effective_to = today
+                changed = True
+            if changed:
+                fee.save(update_fields=['is_active', 'effective_to', 'updated_at'])
+                archived += 1
+
+    if archived:
+        messages.success(request, f'{archived} fee structure record(s) archived successfully.')
+    else:
+        messages.info(request, 'Selected fee structure record(s) were already archived/history records.')
+    return redirect('degree:fee_structures')
+
+
+@role_required(UserProfile.Role.ADMIN)
 def fee_structure_template(request):
     wb = Workbook()
     ws = wb.active
